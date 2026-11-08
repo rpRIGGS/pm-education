@@ -342,13 +342,23 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local src = source
     local session = activeExams[src]
     if not session or session.pending or session.submitting or session.institutionId ~= institutionId or session.courseId ~= courseId then return end
-    session.submitting = true
-    activeExams[src] = nil -- consumed once, before any yielding validation or insert
     local _, citizenid = playerFor(src)
-    if citizenid ~= session.citizenid or os.time() - session.started > 1800 then return end
+    if citizenid ~= session.citizenid or os.time() - session.started > 1800 then
+        activeExams[src] = nil
+        return
+    end
     local course = getCourse(institutionId, courseId)
     local answerKey = session.answerKey or {}
-    if not course or type(answers) ~= 'table' or #answerKey == 0 or #answers ~= #answerKey then return end
+    if not course or type(answers) ~= 'table' or #answerKey == 0 or #answers ~= #answerKey then
+        return notify(src, 'Invalid examination submission. The active session was not consumed.', 'error')
+    end
+    for index, question in ipairs(answerKey) do
+        if type(answers[index]) ~= 'number' or answers[index] % 1 ~= 0 or answers[index] < 1 or answers[index] > question.count then
+            return notify(src, 'Invalid answer selection. The active session was not consumed.', 'error')
+        end
+    end
+    session.submitting = true
+    activeExams[src] = nil -- consumed before first yielding database validation
     local enrolledOk, current = pcall(enrollment, citizenid, institutionId, courseId)
     if not enrolledOk or not current or current.id ~= session.enrollmentId or
         (current.status ~= 'enrolled' and current.status ~= 'in_progress') then
