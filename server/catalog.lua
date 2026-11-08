@@ -108,14 +108,13 @@ lib.callback.register('pm-education:server:catalogSaveDraft', function(src, inst
     if not row or not validPayload(row.content_type, payload) then return false end
     local encoded = json.encode(payload)
     if not encoded or #encoded > 100000 then return false end
-    local changed = MySQL.update.await(
-        'UPDATE pm_education_catalog SET payload_json = ? WHERE id = ? AND institution_id = ? AND status = ?',
-        {encoded, catalogId, institutionId, 'draft'})
-    if changed ~= 1 then return false end
-    MySQL.insert.await(
-        'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
-        {catalogId, institutionId, actor, 'save_draft', 'Updated draft content'})
-    return true
+    local ok, saved = pcall(MySQL.transaction.await, {
+        {query = 'UPDATE pm_education_catalog SET payload_json = ? WHERE id = ? AND institution_id = ? AND status = ?',
+         values = {encoded, catalogId, institutionId, 'draft'}},
+        {query = 'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
+         values = {catalogId, institutionId, actor, 'save_draft', 'Updated draft content'}}
+    })
+    return ok and saved == true
 end)
 
 -- Explicit publication; new sessions can select this revision after delivery migration.
