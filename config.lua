@@ -1,3 +1,9 @@
+-- AUTHORITATIVE PM Education runtime configuration.
+-- The old shared/config.lua from qb-university is removed and is not loaded.
+-- Institution templates in development/institutions are draft source material,
+-- not live settings. Configure real desks, staff jobs and approved curricula here.
+-- See development-reference/post-setup.md before enabling player interactions.
+
 Config = {}
 Config.Debug = false
 Config.Payment = {
