@@ -186,6 +186,15 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId)
     notify(src, ('Enrollment #%s created.'):format(id), 'success')
 end)
 
+-- Students can inspect their own payments; no other citizen IDs are accepted.
+lib.callback.register('pm-education:server:myPayments', function(src, institutionId)
+    local _, citizenid = playerFor(src)
+    if not citizenid or type(institutionId) ~= 'string' or not Config.Institutions[institutionId] then return {} end
+    return MySQL.query.await(
+        'SELECT id, payment_type, amount, money_type, status, created_at FROM pm_education_payments WHERE citizenid = ? AND institution_id = ? ORDER BY id DESC LIMIT 50',
+        { citizenid, institutionId }) or {}
+end)
+
 lib.callback.register('pm-education:server:myEnrollments', function(src, institutionId)
     local _, citizenid = playerFor(src)
     if not citizenid or type(institutionId) ~= 'string' or not Config.Institutions[institutionId] or Config.Institutions[institutionId].enabled == false then return {} end
