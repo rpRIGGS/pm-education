@@ -754,7 +754,7 @@ lib.callback.register('pm-education:server:credentialHistory', function(src, ins
     if not record then return {} end
     return MySQL.query.await(
         'SELECT previous_status, new_status, reason, actor_citizenid, recorded_at FROM pm_education_credential_audit WHERE credential_id = ? ORDER BY id DESC LIMIT 50',
-        { credentialId }) or {}
+        { credentialId })
 end)
 
 lib.callback.register('pm-education:server:setCredentialStatus', function(src, institutionId, credentialId, nextStatus, reason)
