@@ -152,3 +152,13 @@ Test status changes and audit persistence on the development database before liv
 - Spawned admissions/examiner NPCs and instructor qb-target zones are removed on resource stop.
 - Exam fees remain cash-only and society routing is still a placeholder.
 - **Outstanding:** robust payment ledger and reconciliation for failures, race/concurrency tests, and full in-server validation.
+
+## Payment ledger and reconciliation
+
+Import the updated `sql/pm_education.sql` before starting this revision. It adds `pm_education_payments` alongside the existing education tables.
+
+Enrollment and examination cash payments create a ledger entry before debiting QBCore cash. States include `pending`, `charged`, `completed`, `failed`, `refunded`, and `refund_failed`. A failed enrollment insert or exam startup attempts a refund and records the result.
+
+From the **server console only**, run `pm_education_payments` to list up to 50 payments needing review. This is intentionally read-only and never automatically retries debits or refunds. An administrator must reconcile uncertain rows against the QBCore cash records before changing balances.
+
+**Still pending:** society deposit adapter, configurable cash/bank payment method, payment receipts, crash-window recovery, duplicate-enrollment database uniqueness, and real FiveM/oxmysql integration tests. The ledger improves traceability but cannot make a QBCore cash debit and a separate MySQL write fully atomic.
