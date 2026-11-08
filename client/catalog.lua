@@ -106,7 +106,7 @@ openRevision=function(institutionId,catalogId)
             end}
         end
         options[#options+1]={title='Publish revision',onSelect=function()
-            if lib.alertDialog({header='Publish revision?',content='Published content cannot be edited in place. Publishing this revision will atomically retire the previously published revision.',cancel=true})~='confirm' then return end
+            if lib.alertDialog({header='Publish revision?',content='Only saved draft changes are published. Publishing retires the previous revision. Continue?',cancel=true})~='confirm' then return end
             local ok=call('catalogPublish',institutionId,catalogId)
             lib.notify({description=ok and 'Revision published' or 'Publication failed',type=ok and 'success' or 'error'})
             openCatalog(institutionId)
