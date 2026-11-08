@@ -140,6 +140,7 @@ end
 
 CreateThread(function()
     for institutionId, institution in pairs(Config.Institutions) do
+        if institution.enabled ~= false then
         local id = institutionId
         for _, point in ipairs(institution.admissions or {}) do
             spawnInteraction(point, function() showAdmissions(id) end)
@@ -147,6 +148,7 @@ CreateThread(function()
         for _, examiner in ipairs(institution.examiners or {}) do
             local location = examiner
             spawnInteraction(location, function() showExaminer(id, location) end)
+        end
         end
     end
 end)
@@ -268,6 +270,7 @@ end
 
 CreateThread(function()
  for institutionId, institution in pairs(Config.Institutions) do
+  if institution.enabled ~= false then
   local id = institutionId
   for index, desk in ipairs(institution.management or {}) do
    local location = desk
@@ -280,6 +283,7 @@ CreateThread(function()
      label = location.label or 'Instructor Management',
      action = function() openInstructorManagement(id) end
     }}, distance = 2.0 })
+  end
   end
  end
 end)
