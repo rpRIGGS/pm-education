@@ -170,3 +170,13 @@ From the **server console only**, run `pm_education_payments` to list up to 50 p
 - `Config.Payment.moneyType` accepts `'cash'` (default) or `'bank'`; the chosen type is recorded in each payment ledger entry. Do not change the money type while a transaction is being processed.
 - `Config.Payment.societyDepositsEnabled = false` and `societyAdapter = 'none'` are deliberate placeholders. **No society deposits occur yet.**
 - Retakes, chargebacks, administrator reconciliation and business accounting require additional policy/integration work; receipt entries are not proof that society funds were transferred.
+
+## Implemented QBCore payment and society banking
+
+**Current implementation supersedes earlier placeholder notes in this guide.** Students select **Cash** or **Bank** at the admissions or examination dialog. The server validates that choice and uses `Player.Functions.RemoveMoney(method, fee, reason)`. Fees are taken from the configured course, never from the client.
+
+PM Education credits `Config.Institutions[institutionId].society` using the official `exports['qb-banking']:AddMoney(account, amount, reason)`. The server verifies the society account exists using `GetAccount` **before charging**. `qb-management` remains the management UI; no separate qb-management balance is credited. `qb-banking` is a manifest dependency.
+
+**Account setup:** The `post` and `university` society account names are currently configured; verify those exact job accounts exist in your installed qb-banking. Society account auto-creation depends on the banking resource; this script deliberately does not fabricate an account.
+
+**Important failure boundary:** QBCore player money, qb-banking society credits, and the PM Education payment ledger are separate operations. If a society credit or ledger write is uncertain, the payment remains flagged for console reconciliation; **do not automatically repeat the society credit** or duplicate revenue. Use `pm_education_payments` and compare the payment number with qb-banking statements. This needs in-server verification with your installed banking fork.
