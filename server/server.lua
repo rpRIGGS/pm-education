@@ -481,7 +481,7 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
         activeExams[src] = nil
         return
     end
-    local course = getCourse(institutionId, courseId)
+    local course = getCourse(institutionId, courseId, session.enrollmentId)
     local answerKey = session.answerKey or {}
     if not course or type(answers) ~= 'table' or #answerKey == 0 or #answers ~= #answerKey then
         return notify(src, 'Invalid examination submission. The active session was not consumed.', 'error')
