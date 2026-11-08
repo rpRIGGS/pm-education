@@ -91,7 +91,10 @@ lib.callback.register('pm-education:server:catalogCreateDraft', function(src, in
             {inserted, institutionId, actor, 'create_draft', 'Created revision ' .. nextRevision})
         return inserted
     end)
-    if not ok then return nil end
+    if not ok then
+        print(('[pm-education] Catalog draft insert failed for %s/%s/%s: %s'):format(institutionId, kind, key, tostring(result)))
+        return nil
+    end
     return result
 end)
 
