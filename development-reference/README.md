@@ -131,7 +131,7 @@ Potential use: Sandy Shores University, professional development, vocational cou
 | Civilian services | `garbage` | Garbage |
 | Civilian services | `unemployed` | Civilian |
 
-**Note:** `unemployed` (Civilian) is included to make this a complete source-file inventory. It was omitted from the earlier 27-job civilian/commercial breakdown, which instead counted only 26 civilian/commercial job IDs. The full source inventory is therefore **66 unique job identifiers**, not 65. Civilians may take general courses without a job assignment.
+**Note:** `unemployed` (Civilian) is included to make this a complete source-file inventory. It was omitted from the earlier 27-job civilian/commercial breakdown, which instead counted only 26 civilian/commercial job IDs. The full source inventory is therefore **65 unique job identifiers**; the earlier breakdown counted 64 entries despite reporting 65. Civilians may take general courses without a job assignment.
 
 ## Counts
 
