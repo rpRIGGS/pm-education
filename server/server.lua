@@ -156,19 +156,27 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local course = getCourse(institutionId, courseId)
     if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId)
         or #getQuestions(institutionId, courseId) == 0 then return end
-    if activeExams[src] then return notify(src, 'An exam is already active.', 'error') end
+    if activeExams[src] and os.time() - activeExams[src].started <= 1800 then
+        return notify(src, 'An exam is already active.', 'error')
+    end
+    activeExams[src] = nil
     local record = enrollment(citizenid, institutionId, courseId)
     if not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress') then
         return notify(src, 'You must have an active enrollment.', 'error')
     end
-    local fee = course.examFee or 0
-    if not charge(player, fee, 'PM Education Exam') then return notify(src, 'Insufficient cash for exam.', 'error') end
     local questions = {}
     for index, question in ipairs(getQuestions(institutionId, courseId)) do
         questions[index] = { question = question.question, answers = question.answers }
     end
+    local fee = course.examFee or 0
+    if not charge(player, fee, 'PM Education Exam') then return notify(src, 'Insufficient cash for exam.', 'error') end
     activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time() }
-    MySQL.update.await("UPDATE pm_education_enrollments SET status = 'in_progress' WHERE id = ? AND status = 'enrolled'", {record.id})
+    local updated = pcall(MySQL.update.await, "UPDATE pm_education_enrollments SET status = 'in_progress' WHERE id = ? AND status = 'enrolled'", {record.id})
+    if not updated then
+        activeExams[src] = nil
+        if fee > 0 then player.Functions.AddMoney('cash', fee, 'PM Education Exam Refund') end
+        return notify(src, 'Exam could not start. Payment refund attempted.', 'error')
+    end
     TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, questions)
 end)
 
@@ -189,9 +197,12 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     end
     local score = math.floor(correct * 100 / #questionBank)
     local passed = score >= (course.passPercent or 70)
-    MySQL.insert.await(
+    local ok, saved = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json) VALUES (?, ?, ?, ?, ?)',
         {session.enrollmentId, citizenid, score, passed and 1 or 0, json.encode(answers)})
+    if not ok or not saved then
+        return notify(src, 'Exam results could not be saved. Contact an administrator.', 'error')
+    end
     if passed then refreshCompletion(session.enrollmentId, institutionId, courseId) end
     notify(src, ('Exam %s: %d%%'):format(passed and 'passed' or 'failed', score), passed and 'success' or 'error')
 end)
