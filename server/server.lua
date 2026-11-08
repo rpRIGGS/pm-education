@@ -371,9 +371,12 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     end
     local score = math.floor(correct * 100 / #answerKey)
     local passed = score >= session.passPercent
-    local ok, saved = pcall(MySQL.insert.await,
-        'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json, catalog_revision_id) VALUES (?, ?, ?, ?, ?, ?)',
-        {session.enrollmentId, citizenid, score, passed and 1 or 0, json.encode(answers), session.catalogRevisionId or MySQL.NULL})
+    local attemptSql = session.catalogRevisionId
+        and 'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json, catalog_revision_id) VALUES (?, ?, ?, ?, ?, ?)'
+        or 'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json) VALUES (?, ?, ?, ?, ?)'
+    local attemptParams = {session.enrollmentId, citizenid, score, passed and 1 or 0, json.encode(answers)}
+    if session.catalogRevisionId then attemptParams[#attemptParams + 1] = session.catalogRevisionId end
+    local ok, saved = pcall(MySQL.insert.await, attemptSql, attemptParams)
     if not ok or not saved then
         return notify(src, 'Exam results could not be saved. Contact an administrator.', 'error')
     end
