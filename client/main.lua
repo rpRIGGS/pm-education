@@ -259,8 +259,8 @@ local function manageStudentCredentials(institutionId, student)
 end
 
 local function openInstructorStudent(institutionId, student)
- local course = Config.Institutions[institutionId].courses[student.course_id]
- if not course then return end
+ local course = lib.callback.await('pm-education:server:courseOutline', false, institutionId, student.course_id)
+ if not course then return notify('Course requirements unavailable.', 'error') end
  local progress = lib.callback.await('pm-education:server:courseProgress', false, institutionId, student.id)
  if not progress then return notify('Unable to load course progress.', 'error') end
  local history = lib.callback.await('pm-education:server:instructorResults', false, institutionId, student.id) or {}
