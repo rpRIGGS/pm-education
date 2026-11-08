@@ -129,6 +129,10 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     local decoded, payload = pcall(json.decode, row.payload_json)
     if not decoded or not validPayload(row.content_type, payload) then return false end
     if row.content_type == 'exam' and #payload.questions == 0 then return false end
+    if row.content_type == 'exam' then
+        local course = (Config.Institutions[institutionId].courses or {})[row.content_key]
+        if not course then return false end
+    end
     if row.content_type == 'exam' and not (Config.Institutions[institutionId].courses or {})[row.content_key] then
         return false -- An exam must be attached to an existing offered course.
     end
