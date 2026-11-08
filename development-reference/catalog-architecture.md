@@ -18,3 +18,16 @@
 
 ## Before live testing
 Apply both SQL files. Confirm the real job/grade and management-desk coordinates for each institution. Test with an unauthorized job, a lower grade, and another institution's leadership. Never seed unapproved POST questions or silently activate demonstration university courses.
+
+## Current catalog callback API
+All calls are restricted to the configured institution administrator job/grade and management-desk proximity.
+
+- `catalogList(institutionId)` — list the institution's revisions.
+- `catalogRead(institutionId, catalogId)` — read the revision payload.
+- `catalogCreateDraft(institutionId, kind, key, payload)` — create an unpublished revision.
+- `catalogSaveDraft(institutionId, catalogId, payload)` — edit only drafts.
+- `catalogPublish(institutionId, catalogId)` — publish a validated draft when no active published revision exists.
+- `catalogRetire(institutionId, catalogId)` — retire a published revision.
+- `catalogHistory(institutionId, catalogId)` — inspect audit events.
+
+**Important:** This is groundwork, not a finished editor. The Lua/ox_lib administration interface, controlled imports, immutable exam-attempt revision links, atomic publication switching, stronger database transaction boundaries, and deployment validation remain outstanding. The legacy exam delivery is still active and does not yet read the new catalog.
