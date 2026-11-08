@@ -531,6 +531,7 @@ end)
 
 -- Instructor management is always validated on the server.
 local function instructorAuthorized(src, institutionId)
+ if type(institutionId) ~= 'string' then return false end
  local institution = Config.Institutions[institutionId]
  if not institution or institution.enabled == false then return false end
  local player = QBCore.Functions.GetPlayer(src)
@@ -542,7 +543,7 @@ local function instructorAuthorized(src, institutionId)
  if ped == 0 then return false end
  local pos = GetEntityCoords(ped)
  for _, desk in ipairs(institution.management or {}) do
-  if #(pos - vector3(desk.coords.x, desk.coords.y, desk.coords.z)) <= 5.0 then return true end
+  if desk.coords and #(pos - vector3(desk.coords.x, desk.coords.y, desk.coords.z)) <= 5.0 then return true end
  end
  return false
 end
