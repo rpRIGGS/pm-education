@@ -15,6 +15,7 @@ local function importOne(institution, kind, key, payload)
     if kind=='course' and (type(payload.passPercent)~='number' or payload.passPercent<0 or payload.passPercent>100) then return false end
     local encoded=json.encode(payload)
     if not encoded or #encoded>100000 then return false end
+    local sourceHash=tostring(GetHashKey(encoded))
     local latest=MySQL.single.await(
         'SELECT id, revision, payload_json FROM pm_education_catalog WHERE institution_id=? AND content_type=? AND content_key=? ORDER BY revision DESC LIMIT 1',
         {institution,kind,key})
@@ -22,18 +23,17 @@ local function importOne(institution, kind, key, payload)
         -- Compare against all prior development imports, not in-game edits.
         -- This avoids repeatedly creating identical drafts after staff modify a draft.
         local imported=MySQL.query.await(
-            "SELECT payload_json FROM pm_education_catalog WHERE institution_id=? AND content_type=? AND content_key=? AND source_kind='development'",
+            "SELECT source_hash FROM pm_education_catalog WHERE institution_id=? AND content_type=? AND content_key=? AND source_kind='development'",
             {institution,kind,key}) or {}
         for _,record in ipairs(imported) do
-            local decoded,prior=pcall(json.decode,record.payload_json)
-            if decoded and json.encode(prior)==encoded then return false end
+            if record.source_hash==sourceHash then return false end
         end
         -- Changed templates become new reviewable drafts, never overwrite live content.
     end
     local revision=latest and (tonumber(latest.revision)+1) or 1
     local id=MySQL.insert.await(
-        "INSERT INTO pm_education_catalog (institution_id,content_type,content_key,revision,status,payload_json,source_kind,created_by) VALUES (?,?,?,?,'draft',?,'development','system')",
-        {institution,kind,key,revision,encoded})
+        "INSERT INTO pm_education_catalog (institution_id,content_type,content_key,revision,status,payload_json,source_hash,source_kind,created_by) VALUES (?,?,?,?,'draft',?,?,'development','system')",
+        {institution,kind,key,revision,encoded,sourceHash})
     if not id then return false end
     MySQL.insert.await(
         'INSERT INTO pm_education_catalog_audit (catalog_id,institution_id,actor_citizenid,action,notes) VALUES (?,?,?,?,?)',
