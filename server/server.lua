@@ -311,7 +311,10 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         end
     end
     activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey }
-    paymentComplete(paymentId, record.id, institutionId, fee)
+    local completedOk, credited = pcall(paymentComplete, paymentId, record.id, institutionId, fee)
+    if not completedOk or not credited then
+        notify(src, 'Exam started; society payment requires administrator reconciliation.', 'error')
+    end
     TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, questions)
 end)
 
