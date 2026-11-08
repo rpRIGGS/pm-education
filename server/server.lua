@@ -26,12 +26,10 @@ local function notify(src, message, kind)
 end
 
 local function getCourse(institutionId, courseId, enrollmentId)
-    if type(institutionId) ~= 'string' or type(courseId) ~= 'string' then return end
+    if type(institutionId) ~= 'string' or type(courseId) ~= 'string' then return nil end
     local institution = Config.Institutions[institutionId]
     local base = institution and institution.enabled ~= false and institution.courses and institution.courses[courseId]
     if not base then return nil, institution end
-    -- Config remains the allowlist for offered courses and financial settings.
-    -- Published course catalog revisions may override only curriculum-facing fields.
     local revisionId
     if enrollmentId then
         local enrollmentRow = MySQL.single.await(
@@ -43,45 +41,49 @@ local function getCourse(institutionId, courseId, enrollmentId)
     local query = revisionId
         and "SELECT payload_json FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND content_type = 'course' AND content_key = ?"
         or "SELECT payload_json FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'course' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1"
-    local params = revisionId and {revisionId, institutionId, courseId} or {institutionId, courseId}
-    local ok, row = pcall(MySQL.single.await, query, params)
-    if not ok then
-        print('[pm-education] Course catalog query failed for ' .. institutionId .. '/' .. courseId)
-        return nil, institution
-    end
-    if not row then
-        if revisionId then return nil, institution end
-        return base, institution
-    end
-    local decoded, payload = pcall(json.decode, row.payload_json)
+    local params = revisionId and {revisionId,institutionId,courseId} or {institutionId,courseId}
+    local ok,row = pcall(MySQL.single.await,query,params)
+    if not ok then return nil,institution end
+    if not row then return revisionId and nil or base,institution end
+    local decoded,payload = pcall(json.decode,row.payload_json)
     if not decoded or type(payload) ~= 'table' or type(payload.label) ~= 'string' or
         type(payload.passPercent) ~= 'number' or payload.passPercent < 0 or payload.passPercent > 100 then
-        print('[pm-education] Invalid published course catalog payload for ' .. institutionId .. '/' .. courseId)
-        return nil, institution
+        return nil,institution
     end
-    local course = {}
-    for key, value in pairs(base) do course[key] = value end
-    course.label = payload.label
-    course.passPercent = payload.passPercent
+    local course={}
+    for key,value in pairs(base) do course[key]=value end
+    course.label=payload.label
+    course.passPercent=payload.passPercent
     if payload.requireWritten ~= nil then
-        if type(payload.requireWritten) ~= 'boolean' then return nil, institution end
-        course.requireWritten = payload.requireWritten
+        if type(payload.requireWritten) ~= 'boolean' then return nil,institution end
+        course.requireWritten=payload.requireWritten
     end
     if payload.practicalRequirements ~= nil then
-        if type(payload.practicalRequirements) ~= 'table' or #payload.practicalRequirements > 50 then return nil, institution end
-        local requirements, seen = {}, {}
-        for _, requirement in ipairs(payload.practicalRequirements) do
+        if type(payload.practicalRequirements) ~= 'table' or #payload.practicalRequirements>50 then return nil,institution end
+        local seen,requirements={},{}
+        for _,requirement in ipairs(payload.practicalRequirements) do
             if type(requirement) ~= 'table' or type(requirement.id) ~= 'string' or
-                not requirement.id:match('^[%w_%-]+$') or #requirement.id > 80 or
-                type(requirement.label) ~= 'string' or #requirement.label < 1 or
-                #requirement.label > 160 or seen[requirement.id] then return nil, institution end
-            seen[requirement.id] = true
-            requirements[#requirements + 1] = {id = requirement.id, label = requirement.label}
+                #requirement.id<1 or #requirement.id>80 or
+                not requirement.id:match('^[%w_%-]+$') or seen[requirement.id] or
+                type(requirement.label) ~= 'string' or #requirement.label<1 or #requirement.label>160 then
+                return nil,institution
+            end
+            seen[requirement.id]=true
+            requirements[#requirements+1]={id=requirement.id,label=requirement.label}
         end
-        course.practicalRequirements = requirements
+        course.practicalRequirements=requirements
     end
     if payload.credentialId ~= nil then
-        if type(payload.credentialId) ~= 'string' or not payload.credentialId:match('^[%w_%-]+
+        if type(payload.credentialId) ~= 'string' or #payload.credentialId<1 or #payload.credentialId>80 or
+            not payload.credentialId:match('^[%w_%-]+$') then return nil,institution end
+        course.credentialId=payload.credentialId
+    end
+    if payload.credentialLabel ~= nil then
+        if type(payload.credentialLabel) ~= 'string' or #payload.credentialLabel<1 or
+            #payload.credentialLabel>160 then return nil,institution end
+        course.credentialLabel=payload.credentialLabel
+    end
+    return course,institution
 end
 
 local function nearInteraction(src, institutionId, kind, courseId)
@@ -702,4 +704,7 @@ RegisterCommand('pm_education_payments', function(src)
         "SELECT id, citizenid, payment_type, amount, status, details, created_at FROM pm_education_payments WHERE status IN ('pending','charged','refund_failed') ORDER BY id DESC LIMIT 50")
     if not ok then return print('[pm-education] Payment ledger unavailable') end
     print(('[pm-education] Payments needing review: %d (latest 50)'):format(#(rows or {})))
-    for _, row in ipairs(rows or 
+    for _, row in ipairs(rows or {}) do
+        print(('[pm-education] #%s %s %s $%s %s %s'):format(row.id, row.citizenid, row.payment_type, row.amount, row.status, row.details or ''))
+    end
+end, false)
