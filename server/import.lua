@@ -30,15 +30,30 @@ local function importOne(institution, kind, key, payload)
         end
         -- Changed templates become new reviewable drafts, never overwrite live content.
     end
-    local revision=latest and (tonumber(latest.revision)+1) or 1
-    local id=MySQL.insert.await(
-        "INSERT INTO pm_education_catalog (institution_id,content_type,content_key,revision,status,payload_json,source_hash,source_kind,created_by) VALUES (?,?,?,?,'draft',?,?,'development','system')",
-        {institution,kind,key,revision,encoded,sourceHash})
-    if not id then return false end
-    MySQL.insert.await(
-        'INSERT INTO pm_education_catalog_audit (catalog_id,institution_id,actor_citizenid,action,notes) VALUES (?,?,?,?,?)',
-        {id,institution,'system','import',latest and 'Updated development template; review required' or 'Initial development template'})
-    return true
+    -- Allocate revisions with the unique key as a concurrency backstop.
+    -- Import and audit must commit together; never expose an unaudited draft.
+    for attempt = 1, 3 do
+        local revision = tonumber(MySQL.scalar.await(
+            'SELECT COALESCE(MAX(revision), 0) FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ?',
+            {institution,kind,key})) + 1
+        local statements = {
+            {
+                query = "INSERT INTO pm_education_catalog (institution_id,content_type,content_key,revision,status,payload_json,source_hash,source_kind,created_by) VALUES (?,?,?,?,'draft',?,?,'development','system')",
+                values = {institution,kind,key,revision,encoded,sourceHash}
+            },
+            {
+                query = "INSERT INTO pm_education_catalog_audit (catalog_id,institution_id,actor_citizenid,action,notes) SELECT id, ?, 'system', 'import', ? FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ? AND revision = ?",
+                values = {institution,latest and 'Updated development template; review required' or 'Initial development template',institution,kind,key,revision}
+            }
+        }
+        local ok, committed = pcall(MySQL.transaction.await, statements)
+        if ok and committed then return true end
+        if not ok then
+            print(('[pm-education] Import retry %d for %s/%s/%s: %s'):format(
+                attempt,institution,kind,key,tostring(committed)))
+        end
+    end
+    return false
 end
 RegisterCommand('pm_education_import',function(source)
     if source~=0 then return end -- console only
