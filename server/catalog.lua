@@ -201,13 +201,24 @@ end)
 lib.callback.register('pm-education:server:catalogRetire', function(src, institutionId, catalogId)
     local allowed, actor = authorized(src, institutionId)
     if not allowed or type(catalogId) ~= 'number' or catalogId % 1 ~= 0 then return false end
+    local row = MySQL.single.await(
+        "SELECT content_type, content_key FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'published'",
+        {catalogId, institutionId})
+    if not row then return false end
+    local lockKey = institutionId .. '/' .. row.content_type .. '/' .. row.content_key
+    if not acquirePublication(lockKey) then return false end
     local ok, retired = pcall(MySQL.transaction.await, {
         {query = "UPDATE pm_education_catalog SET status = 'retired' WHERE id = ? AND institution_id = ? AND status = 'published'",
          values = {catalogId, institutionId}},
         {query = "INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) SELECT id, ?, ?, 'retire', ? FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'retired'",
          values = {institutionId, actor, 'Retired published revision; historical qualifications unaffected', catalogId, institutionId}}
     })
-    return ok and retired == true
+    releasePublication(lockKey)
+    if not ok or not retired then return false end
+    local remaining = MySQL.scalar.await(
+        "SELECT COUNT(*) FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'published'",
+        {catalogId, institutionId})
+    return tonumber(remaining or 1) == 0
 end)
 
 lib.callback.register('pm-education:server:catalogHistory', function(src, institutionId, catalogId)
