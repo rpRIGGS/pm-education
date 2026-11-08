@@ -30,16 +30,19 @@ Config.Institutions = {
 Config.Institutions.post = {
  label = 'Peace Officer Standards and Training (POST)',
  society = 'post',
- staffJobs = { post = { minGrade = 0 } }, -- REPLACE with approved academy job and grade before use
+ staffJobs = {}, -- REQUIRED: set actual instructor job and minimum grade, e.g. { YOUR_JOB = { minGrade = 2 } }
+ -- Keep empty until staff permissions are confirmed; no accidental instructor access.
  admissions = {},
  examiners = {},
- management = {}, -- { coords = vector3(...), length = 1.5, width = 1.5, heading = 0.0, label = 'POST Instructor Desk' }
+ management = {}, -- REQUIRED: add real academy desk vector3; see development-reference/post-setup.md
  courses = {
   post_basic = {
    label = 'POST Basic Academy',
    enrollmentFee = 0,
    examFee = 0,
-   passPercent = 80,
+   passPercent = 80, -- PROVISIONAL passing threshold
+   credentialId = 'post_basic_accreditation',
+   credentialLabel = 'POST Basic Academy Accreditation',
    questions = {}, -- Written question bank pending approval; exams are unavailable until populated.
    practicalRequirements = {
     { id = 'code5', label = 'Code 5 Traffic Stop' },
