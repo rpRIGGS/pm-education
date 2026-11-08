@@ -201,6 +201,15 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     if not encoded or #encoded > 100000 then return false end
     local lockKey = institutionId .. '/' .. row.content_type .. '/' .. row.content_key
     if not acquirePublication(lockKey) then return false end
+    -- Recheck the draft after taking the lock: a concurrent staff edit may
+    -- have changed the payload while publication was being prepared.
+    local current = MySQL.single.await(
+        "SELECT payload_json FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'draft'",
+        {catalogId, institutionId})
+    if not current or current.payload_json ~= row.payload_json then
+        releasePublication(lockKey)
+        return false
+    end
     local transactionOk, switched = pcall(MySQL.transaction.await, {
         {
             query = "UPDATE pm_education_catalog SET payload_json = ? WHERE id = ? AND institution_id = ? AND status = 'draft'",
