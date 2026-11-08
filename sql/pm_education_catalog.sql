@@ -15,7 +15,12 @@ CREATE TABLE IF NOT EXISTS pm_education_catalog (
  published_at TIMESTAMP NULL DEFAULT NULL,
  PRIMARY KEY(id),
  UNIQUE KEY uq_content_revision (institution_id,content_type,content_key,revision),
- KEY idx_active_content (institution_id,content_type,status,content_key)
+ KEY idx_active_content (institution_id,content_type,status,content_key),
+ -- NULL permits multiple drafts/retired revisions; non-NULL permits only one published revision.
+ published_slot VARCHAR(255) GENERATED ALWAYS AS (
+  CASE WHEN status = 'published' THEN CONCAT(institution_id, '/', content_type, '/', content_key) ELSE NULL END
+ ) STORED,
+ UNIQUE KEY uq_single_published (published_slot)
 );
 CREATE TABLE IF NOT EXISTS pm_education_catalog_audit (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
