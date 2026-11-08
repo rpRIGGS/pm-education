@@ -11,11 +11,13 @@ local function getQuestions(institutionId, courseId)
         {institutionId, courseId})
     if not ok then
         print('[pm-education] Catalog unavailable; refusing to silently use legacy questions')
-        return {}, nil
+        return nil, nil, 'catalog_unavailable'
     end
     if not row then return legacy, nil end
     local decoded, payload = pcall(json.decode, row.payload_json)
-    if not decoded or type(payload) ~= 'table' or type(payload.questions) ~= 'table' then return {}, nil end
+    if not decoded or type(payload) ~= 'table' or type(payload.questions) ~= 'table' then
+        return nil, nil, 'invalid_published_exam'
+    end
     return payload.questions, row.id
 end
 
@@ -176,7 +178,9 @@ end
 
 -- Completion is calculated from SQL results, never client-reported progress.
 local function courseProgress(enrollmentId, course, institutionId, courseId)
-    local writtenRequired = #getQuestions(institutionId, courseId) > 0
+    local availableQuestions, _, catalogError = getQuestions(institutionId, courseId)
+    if catalogError then error('Unable to determine course written requirements: ' .. catalogError) end
+    local writtenRequired = #availableQuestions > 0
     local writtenPassed = false
     if writtenRequired then
         local attempt = MySQL.single.await(
@@ -307,7 +311,10 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
     if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId) then return end
-    local selectedQuestions, revisionId = getQuestions(institutionId, courseId)
+    local selectedQuestions, revisionId, catalogError = getQuestions(institutionId, courseId)
+    if catalogError then
+        return notify(src, 'Examination catalog unavailable. No fee charged.', 'error')
+    end
     if #selectedQuestions == 0 then
         return notify(src, 'Written examination questions are not configured yet.', 'error')
     end
