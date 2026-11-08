@@ -58,3 +58,18 @@ jobs:
           test -f client/catalog.lua
           test -f sql/pm_education_enrollment_revision_migration.sql
           test -f sql/pm_education_exam_revision_migration.sql
+          test -f sql/pm_education_catalog_published_uniqueness_migration.sql
+          python3 - <<'PY'
+          import pathlib, re, sys
+          manifest = pathlib.Path('fxmanifest.lua').read_text(encoding='utf-8')
+          missing = []
+          for entry in re.findall(r"['\"]([^'\"]+\.lua)['\"]", manifest):
+              if entry.startswith('@'):
+                  continue
+              if not pathlib.Path(entry).is_file():
+                  missing.append(entry)
+          if missing:
+              print('Missing manifest Lua files:', ', '.join(missing), file=sys.stderr)
+              sys.exit(1)
+          print('Manifest Lua paths resolve')
+          PY
