@@ -111,3 +111,76 @@ CreateThread(function()
         end
     end
 end)
+
+local function openInstructorStudent(institutionId, student)
+ local course = Config.Institutions[institutionId].courses[student.course_id]
+ if not course then return end
+ local history = lib.callback.await('pm-education:server:instructorResults', false, institutionId, student.id) or {}
+ local latest = {}
+ for _, entry in ipairs(history) do
+  if not latest[entry.requirement_id] then latest[entry.requirement_id] = entry.result end
+ end
+ local options = {}
+ for _, requirement in ipairs(course.practicalRequirements or {}) do
+  local selected = requirement
+  options[#options + 1] = {
+   title = selected.label,
+   description = 'Latest: ' .. (latest[selected.id] or 'Not evaluated'),
+   onSelect = function()
+    local input = lib.inputDialog('Evaluate: ' .. selected.label, {
+     { type = 'select', label = 'Result', required = true, options = {
+      { value = 'pass', label = 'Pass' }, { value = 'fail', label = 'Fail' },
+      { value = 'incomplete', label = 'Incomplete' }
+     }},
+     { type = 'textarea', label = 'Instructor notes (optional)', max = 1000 }
+    })
+    if not input then return end
+    local confirm = lib.alertDialog({
+     header = 'Record instructor evaluation?',
+     content = ('Student: %s\nExercise: %s\nResult: %s'):format(student.citizenid, selected.label, input[1]),
+     centered = true, cancel = true
+    })
+    if confirm == 'confirm' then
+     TriggerServerEvent('pm-education:server:recordPractical', institutionId, student.id, selected.id, input[1], input[2] or '')
+    end
+   end
+  }
+ end
+ if #options == 0 then options[1] = { title = 'No practical requirements configured', disabled = true } end
+ lib.registerContext({ id = 'pm_education_instructor_student', title = course.label .. ' / ' .. student.citizenid, options = options })
+ lib.showContext('pm_education_instructor_student')
+end
+
+local function openInstructorManagement(institutionId)
+ local students = lib.callback.await('pm-education:server:instructorStudents', false, institutionId) or {}
+ local options = {}
+ for _, student in ipairs(students) do
+  local selected = student
+  options[#options + 1] = {
+   title = selected.citizenid,
+   description = ('Enrollment #%s | %s | %s'):format(selected.id, selected.courseLabel, selected.status),
+   onSelect = function() openInstructorStudent(institutionId, selected) end
+  }
+ end
+ if #options == 0 then options[1] = { title = 'No active students or access denied', disabled = true } end
+ lib.registerContext({ id = 'pm_education_instructor_management', title = 'Instructor Management', options = options })
+ lib.showContext('pm_education_instructor_management')
+end
+
+CreateThread(function()
+ for institutionId, institution in pairs(Config.Institutions) do
+  local id = institutionId
+  for index, desk in ipairs(institution.management or {}) do
+   local location = desk
+   exports['qb-target']:AddBoxZone(('pm_education_management_%s_%d'):format(id, index),
+    location.coords, location.length or 1.5, location.width or 1.5, {
+     name = ('pm_education_management_%s_%d'):format(id, index),
+     heading = location.heading or 0.0, minZ = location.coords.z - 1.0, maxZ = location.coords.z + 1.0
+    }, { options = {{
+     icon = 'fas fa-clipboard-check',
+     label = location.label or 'Instructor Management',
+     action = function() openInstructorManagement(id) end
+    }}, distance = 2.0 })
+  end
+ end
+end)
