@@ -42,6 +42,19 @@ local function validPayload(kind, payload)
         end
     elseif kind == 'course' then
         if type(payload.passPercent) ~= 'number' or payload.passPercent < 0 or payload.passPercent > 100 then return false end
+        if payload.requireWritten ~= nil and type(payload.requireWritten) ~= 'boolean' then return false end
+        if payload.credentialId ~= nil and not validKey(payload.credentialId) then return false end
+        if payload.credentialLabel ~= nil and (type(payload.credentialLabel) ~= 'string' or #payload.credentialLabel < 1 or #payload.credentialLabel > 160) then return false end
+        if payload.practicalRequirements ~= nil then
+            if type(payload.practicalRequirements) ~= 'table' or #payload.practicalRequirements > 50 then return false end
+            local seen = {}
+            for _, requirement in ipairs(payload.practicalRequirements) do
+                if type(requirement) ~= 'table' or not validKey(requirement.id) or
+                    type(requirement.label) ~= 'string' or #requirement.label < 1 or #requirement.label > 160 or
+                    seen[requirement.id] then return false end
+                seen[requirement.id] = true
+            end
+        end
     elseif kind ~= 'credential' then
         return false
     end
