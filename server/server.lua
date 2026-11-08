@@ -117,6 +117,7 @@ local function paymentComplete(paymentId, enrollmentId, institutionId, amount)
     local account = societyAccount(institutionId)
     if not account then
         paymentStatus(paymentId, 'charged', 'Society account missing; manual reconciliation required')
+        print(('[pm-education] Payment #%s charged but society account missing; manual reconciliation required'):format(paymentId))
         return false
     end
     if amount > 0 then
@@ -125,6 +126,7 @@ local function paymentComplete(paymentId, enrollmentId, institutionId, amount)
         end)
         if not ok or not credited then
             paymentStatus(paymentId, 'charged', 'Society credit failed or uncertain; reconcile qb-banking statements')
+            print(('[pm-education] Payment #%s society credit failed or uncertain; DO NOT blindly retry'):format(paymentId))
             return false
         end
     end
