@@ -19,9 +19,15 @@ local function importOne(institution, kind, key, payload)
         'SELECT id, revision, payload_json FROM pm_education_catalog WHERE institution_id=? AND content_type=? AND content_key=? ORDER BY revision DESC LIMIT 1',
         {institution,kind,key})
     if latest then
-        -- Re-importing an unchanged template never produces duplicate revisions.
-        local decoded, prior=pcall(json.decode,latest.payload_json)
-        if decoded and json.encode(prior)==encoded then return false end
+        -- Compare against all prior development imports, not in-game edits.
+        -- This avoids repeatedly creating identical drafts after staff modify a draft.
+        local imported=MySQL.query.await(
+            "SELECT payload_json FROM pm_education_catalog WHERE institution_id=? AND content_type=? AND content_key=? AND source_kind='development'",
+            {institution,kind,key}) or {}
+        for _,record in ipairs(imported) do
+            local decoded,prior=pcall(json.decode,record.payload_json)
+            if decoded and json.encode(prior)==encoded then return false end
+        end
         -- Changed templates become new reviewable drafts, never overwrite live content.
     end
     local revision=latest and (tonumber(latest.revision)+1) or 1
