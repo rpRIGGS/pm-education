@@ -224,8 +224,14 @@ end
 
 -- Completion is calculated from SQL results, never client-reported progress.
 local function courseProgress(enrollmentId, course, institutionId, courseId)
-    local availableQuestions, _, catalogError = getQuestions(institutionId, courseId, enrollmentId)
-    if catalogError then error('Unable to determine course written requirements: ' .. catalogError) end
+    local availableQuestions = {}
+    if course.requireWritten ~= false then
+        local catalogError
+        availableQuestions, _, catalogError = getQuestions(institutionId, courseId, enrollmentId)
+        if catalogError or not availableQuestions then
+            error('Unable to determine course written requirements: ' .. tostring(catalogError))
+        end
+    end
     local writtenRequired = course.requireWritten == true or
         (course.requireWritten == nil and #availableQuestions > 0)
     local writtenPassed = false
