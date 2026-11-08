@@ -264,3 +264,19 @@ lib.callback.register('pm-education:server:courseProgress', function(src, instit
     progress.enrollmentStatus = record.status
     return progress
 end)
+
+-- Students may inspect only their own enrollment progress.
+lib.callback.register('pm-education:server:myCourseProgress', function(src, institutionId, enrollmentId)
+    local _, citizenid = playerFor(src)
+    if not citizenid or type(institutionId) ~= 'string' or
+        type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 then return nil end
+    local record = MySQL.single.await(
+        'SELECT course_id, status FROM pm_education_enrollments WHERE id = ? AND citizenid = ? AND institution_id = ?',
+        { enrollmentId, citizenid, institutionId })
+    if not record then return nil end
+    local course = getCourse(institutionId, record.course_id)
+    if not course then return nil end
+    local progress = courseProgress(enrollmentId, course)
+    progress.enrollmentStatus = record.status
+    return progress
+end)
