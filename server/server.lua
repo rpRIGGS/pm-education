@@ -14,12 +14,12 @@ end
 local function getCourse(institutionId, courseId)
     if type(institutionId) ~= 'string' or type(courseId) ~= 'string' then return end
     local institution = Config.Institutions[institutionId]
-    return institution and institution.courses[courseId], institution
+    return institution and institution.enabled ~= false and institution.courses[courseId], institution
 end
 
 local function nearInteraction(src, institutionId, kind, courseId)
     local institution = Config.Institutions[institutionId]
-    if not institution then return false end
+    if not institution or institution.enabled == false then return false end
     local ped = GetPlayerPed(src)
     if not ped or ped == 0 then return false end
     local position = GetEntityCoords(ped)
@@ -139,7 +139,7 @@ end)
 
 lib.callback.register('pm-education:server:myEnrollments', function(src, institutionId)
     local _, citizenid = playerFor(src)
-    if not citizenid or type(institutionId) ~= 'string' or not Config.Institutions[institutionId] then return {} end
+    if not citizenid or type(institutionId) ~= 'string' or not Config.Institutions[institutionId] or Config.Institutions[institutionId].enabled == false then return {} end
     local rows = MySQL.query.await(
         'SELECT id, course_id, status FROM pm_education_enrollments WHERE citizenid = ? AND institution_id = ? ORDER BY id DESC LIMIT 50',
         { citizenid, institutionId })
@@ -205,7 +205,7 @@ end)
 -- Instructor management is always validated on the server.
 local function instructorAuthorized(src, institutionId)
  local institution = Config.Institutions[institutionId]
- if not institution then return false end
+ if not institution or institution.enabled == false then return false end
  local player = QBCore.Functions.GetPlayer(src)
  if not player then return false end
  local job = player.PlayerData.job
