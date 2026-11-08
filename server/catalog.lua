@@ -94,3 +94,44 @@ lib.callback.register('pm-education:server:catalogCreateDraft', function(src, in
     if not ok then return nil end
     return result
 end)
+
+-- Save changes only to unpublished drafts; published revisions are immutable.
+lib.callback.register('pm-education:server:catalogSaveDraft', function(src, institutionId, catalogId, payload)
+    local allowed, actor = authorized(src, institutionId)
+    if not allowed or type(catalogId) ~= 'number' or catalogId % 1 ~= 0 then return false end
+    local row = MySQL.single.await(
+        'SELECT content_type FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = ?',
+        {catalogId, institutionId, 'draft'})
+    if not row or not validPayload(row.content_type, payload) then return false end
+    local encoded = json.encode(payload)
+    if not encoded or #encoded > 100000 then return false end
+    local changed = MySQL.update.await(
+        'UPDATE pm_education_catalog SET payload_json = ? WHERE id = ? AND institution_id = ? AND status = ?',
+        {encoded, catalogId, institutionId, 'draft'})
+    if changed ~= 1 then return false end
+    MySQL.insert.await(
+        'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
+        {catalogId, institutionId, actor, 'save_draft', 'Updated draft content'})
+    return true
+end)
+
+-- Explicit publication; new sessions can select this revision after delivery migration.
+lib.callback.register('pm-education:server:catalogPublish', function(src, institutionId, catalogId)
+    local allowed, actor = authorized(src, institutionId)
+    if not allowed or type(catalogId) ~= 'number' or catalogId % 1 ~= 0 then return false end
+    local row = MySQL.single.await(
+        'SELECT content_type, content_key, payload_json FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = ?',
+        {catalogId, institutionId, 'draft'})
+    if not row then return false end
+    local decoded, payload = pcall(json.decode, row.payload_json)
+    if not decoded or not validPayload(row.content_type, payload) then return false end
+    if row.content_type == 'exam' and #payload.questions == 0 then return false end
+    local ok, changed = pcall(MySQL.update.await,
+        "UPDATE pm_education_catalog SET status = 'published', published_at = NOW() WHERE id = ? AND institution_id = ? AND status = 'draft'",
+        {catalogId, institutionId})
+    if not ok or changed ~= 1 then return false end
+    MySQL.insert.await(
+        'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
+        {catalogId, institutionId, actor, 'publish', 'Published immutable revision'})
+    return true
+end)
