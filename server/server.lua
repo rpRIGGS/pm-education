@@ -3,17 +3,30 @@ local activeExams = {}
 local enrollmentLocks = {}
 local credentialLocks = {}
 
-local function getQuestions(institutionId, courseId)
+local function getQuestions(institutionId, courseId, enrollmentId)
     local legacy = EducationQuestions and EducationQuestions[institutionId] and EducationQuestions[institutionId][courseId] or {}
     -- The catalog is authoritative once a published revision exists.
-    local ok, row = pcall(MySQL.single.await,
-        "SELECT id, payload_json FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'exam' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1",
-        {institutionId, courseId})
+    local examRevisionId
+    if enrollmentId then
+        local enrollmentRow = MySQL.single.await(
+            'SELECT exam_revision_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND course_id = ?',
+            {enrollmentId, institutionId, courseId})
+        if not enrollmentRow then return nil, nil, 'enrollment_missing' end
+        examRevisionId = enrollmentRow.exam_revision_id
+    end
+    local sql = examRevisionId
+        and "SELECT id, payload_json FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND content_type = 'exam' AND content_key = ?"
+        or "SELECT id, payload_json FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'exam' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1"
+    local params = examRevisionId and {examRevisionId,institutionId,courseId} or {institutionId,courseId}
+    local ok, row = pcall(MySQL.single.await, sql, params)
     if not ok then
         print('[pm-education] Catalog unavailable; refusing to silently use legacy questions')
         return nil, nil, 'catalog_unavailable'
     end
-    if not row then return legacy, nil end
+    if not row then
+        if examRevisionId then return nil, nil, 'pinned_exam_missing' end
+        return legacy, nil
+    end
     local decoded, payload = pcall(json.decode, row.payload_json)
     if not decoded or type(payload) ~= 'table' or type(payload.questions) ~= 'table' then
         return nil, nil, 'invalid_published_exam'
@@ -211,7 +224,7 @@ end
 
 -- Completion is calculated from SQL results, never client-reported progress.
 local function courseProgress(enrollmentId, course, institutionId, courseId)
-    local availableQuestions, _, catalogError = getQuestions(institutionId, courseId)
+    local availableQuestions, _, catalogError = getQuestions(institutionId, courseId, enrollmentId)
     if catalogError then error('Unable to determine course written requirements: ' .. catalogError) end
     local writtenRequired = #availableQuestions > 0
     local writtenPassed = false
