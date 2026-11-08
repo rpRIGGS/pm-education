@@ -48,3 +48,8 @@ Catalog draft allocation retries unique-key collisions up to three times. This i
 
 ## Live course discovery
 The admissions and examination menus now use a server callback that reads published course titles and passing percentages. Only course IDs already configured for that institution are returned. Server-side fee values remain authoritative and examiner menus still restrict courses to the examiner's configured offer list. The callback validates a player's proximity to an admissions or examiner point, and fails closed if the catalog query errors. Existing student enrollment lists also use the published course title when available. This does not yet make newly invented course IDs enrollable without adding an approved configuration entry and an examination location.
+
+## Editable course curricula
+Published course revisions now supply the server with written-examination requirements, practical evaluation IDs/titles and linked credential metadata in addition to title and passing percentage. The in-game draft editor supports adding, renaming, removing and reordering practical evaluations; IDs remain stable once created. Instructors receive sanitized published evaluation requirements instead of static client configuration. Fees, access policy, physical interaction points and the set of offered course IDs remain configured server-side.
+
+**Important outstanding decision:** Existing enrollments currently evaluate against the latest published course revision. Before production use, add an enrollment-level curriculum revision snapshot so publishing changed practical requirements cannot silently alter an enrolled student's obligations. Do not publish requirement changes to a live class until this is implemented and tested.
