@@ -139,17 +139,20 @@ lib.callback.register('pm-education:server:catalogSaveDraft', function(src, inst
     local allowed, actor = authorized(src, institutionId)
     if not allowed or type(catalogId) ~= 'number' or catalogId % 1 ~= 0 then return false end
     local row = MySQL.single.await(
-        'SELECT content_type FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = ?',
+        'SELECT content_type, content_key FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = ?',
         {catalogId, institutionId, 'draft'})
     if not row or not validPayload(row.content_type, payload) then return false end
     local encoded = json.encode(payload)
     if not encoded or #encoded > 100000 then return false end
+    local lockKey = institutionId .. '/' .. row.content_type .. '/' .. row.content_key
+    if not acquirePublication(lockKey) then return false end
     local ok, saved = pcall(MySQL.transaction.await, {
         {query = 'UPDATE pm_education_catalog SET payload_json = ? WHERE id = ? AND institution_id = ? AND status = ?',
          values = {encoded, catalogId, institutionId, 'draft'}},
         {query = "INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) SELECT id, ?, ?, 'save_draft', ? FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'draft'",
          values = {institutionId, actor, 'Updated draft content', catalogId, institutionId}}
     })
+    releasePublication(lockKey)
     return ok and saved == true
 end)
 
