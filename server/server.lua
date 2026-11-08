@@ -292,6 +292,11 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local course = getCourse(institutionId, courseId)
     local questionBank = getQuestions(institutionId, courseId)
     if not course or type(answers) ~= 'table' or #questionBank == 0 or #answers ~= #questionBank then return end
+    local enrolledOk, current = pcall(enrollment, citizenid, institutionId, courseId)
+    if not enrolledOk or not current or current.id ~= session.enrollmentId or
+        (current.status ~= 'enrolled' and current.status ~= 'in_progress') then
+        return notify(src, 'Exam enrollment is no longer active.', 'error')
+    end
     local correct = 0
     for index, question in ipairs(getQuestions(institutionId, courseId)) do
         if type(answers[index]) ~= 'number' or answers[index] % 1 ~= 0 or answers[index] < 1 or answers[index] > #question.answers then return end
