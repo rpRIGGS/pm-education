@@ -324,11 +324,29 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Curriculum revision lookup failed')
         return notify(src, refunded and 'Enrollment cancelled; payment refunded.' or 'Enrollment cancelled; refund requires review.', 'error')
     end
-    local insertSql = revisionId
-        and 'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id, curriculum_revision_id) VALUES (?, ?, ?, ?)'
-        or 'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id) VALUES (?, ?, ?)'
+    local examRevisionOk, examRevisionId = pcall(MySQL.scalar.await,
+        "SELECT id FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'exam' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1",
+        {institutionId, courseId})
+    if not examRevisionOk then
+        enrollmentLocks[citizenid] = nil
+        local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam revision lookup failed')
+        return notify(src, refunded and 'Enrollment cancelled; payment refunded.' or 'Enrollment cancelled; refund requires review.', 'error')
+    end
+    local columns = {'citizenid', 'institution_id', 'course_id'}
+    local placeholders = {'?', '?', '?'}
     local insertParams = {citizenid, institutionId, courseId}
-    if revisionId then insertParams[#insertParams + 1] = revisionId end
+    if revisionId then
+        columns[#columns + 1] = 'curriculum_revision_id'
+        placeholders[#placeholders + 1] = '?'
+        insertParams[#insertParams + 1] = revisionId
+    end
+    if examRevisionId then
+        columns[#columns + 1] = 'exam_revision_id'
+        placeholders[#placeholders + 1] = '?'
+        insertParams[#insertParams + 1] = examRevisionId
+    end
+    local insertSql = 'INSERT INTO pm_education_enrollments (' .. table.concat(columns, ', ') ..
+        ') VALUES (' .. table.concat(placeholders, ', ') .. ')'
     local ok, id = pcall(MySQL.insert.await, insertSql, insertParams)
     if not ok or not id then
         enrollmentLocks[citizenid] = nil
