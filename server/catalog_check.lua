@@ -20,6 +20,11 @@ local function checkPayload(row, problems)
             payload.passPercent > 100 then
             report(problems, 'ERROR', 'INVALID_PASS_PERCENT', context)
         end
+        if row.status == 'published' and
+            (type(payload.requireWritten) ~= 'boolean' or type(payload.practicalRequirements) ~= 'table') then
+            report(problems, 'WARN', 'UNSNAPSHOTTED_PUBLISHED_COURSE',
+                context .. ' inherited configuration may change historical requirements')
+        end
         if payload.requireWritten ~= nil and type(payload.requireWritten) ~= 'boolean' then
             report(problems, 'ERROR', 'INVALID_WRITTEN_REQUIREMENT', context)
         end
