@@ -127,3 +127,27 @@ jobs:
           fi
           mariadb -h 127.0.0.1 -u root pm_education_test -e \
             "UPDATE pm_education_catalog SET status = 'retired' WHERE revision = 1 AND institution_id = 'post' AND content_key = 'post_basic'; UPDATE pm_education_catalog SET status = 'published' WHERE revision = 2 AND institution_id = 'post' AND content_key = 'post_basic';"
+      - name: Verify credential award uniqueness and rollback
+        env:
+          MYSQL_PWD: testroot
+        run: |
+          set -euo pipefail
+          mariadb -h 127.0.0.1 -u root pm_education_test <<'SQL'
+          INSERT INTO pm_education_enrollments (citizenid,institution_id,course_id)
+          VALUES ('ci-test','post','post_basic');
+          INSERT INTO pm_education_credentials (enrollment_id,citizenid,institution_id,credential_id,credential_label)
+          VALUES (1,'ci-test','post','post_basic_accreditation','Test Accreditation');
+          SQL
+          if mariadb -h 127.0.0.1 -u root pm_education_test -e \
+            "INSERT INTO pm_education_credentials (enrollment_id,citizenid,institution_id,credential_id,credential_label) VALUES (1,'ci-test','post','post_basic_accreditation','Duplicate')"; then
+            echo "ERROR: duplicate credential award accepted" >&2
+            exit 1
+          fi
+          mariadb -h 127.0.0.1 -u root pm_education_test <<'SQL'
+          START TRANSACTION;
+          UPDATE pm_education_enrollments SET status = 'completed' WHERE id = 1;
+          ROLLBACK;
+          SQL
+          test "$(mariadb -h 127.0.0.1 -u root -N -s pm_education_test -e \
+            "SELECT status FROM pm_education_enrollments WHERE id=1")" = "enrolled"
+
