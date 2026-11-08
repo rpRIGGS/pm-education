@@ -275,7 +275,7 @@ lib.callback.register('pm-education:server:courseProgress', function(src, instit
     if not record then return nil end
     local course = getCourse(institutionId, record.course_id)
     if not course then return nil end
-    local progress = courseProgress(enrollmentId, course, institutionId, courseId)
+    local progress = courseProgress(enrollmentId, course, institutionId, record.course_id)
     progress.enrollmentStatus = record.status
     return progress
 end)
@@ -291,7 +291,7 @@ lib.callback.register('pm-education:server:myCourseProgress', function(src, inst
     if not record then return nil end
     local course = getCourse(institutionId, record.course_id)
     if not course then return nil end
-    local progress = courseProgress(enrollmentId, course, institutionId, courseId)
+    local progress = courseProgress(enrollmentId, course, institutionId, record.course_id)
     progress.enrollmentStatus = record.status
     return progress
 end)
