@@ -28,6 +28,7 @@ Config.Institutions = {
 Config.Institutions.post = {
  label = 'Peace Officer Standards and Training (POST)',
  society = 'post',
+ credentialAdminJobs = {}, -- REQUIRED: approved credential authority job/grade, separate from instructors
  staffJobs = {}, -- REQUIRED: set actual instructor job and minimum grade, e.g. { YOUR_JOB = { minGrade = 2 } }
  -- Keep empty until staff permissions are confirmed; no accidental instructor access.
  admissions = {},
