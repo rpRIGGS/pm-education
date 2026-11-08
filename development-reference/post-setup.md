@@ -57,7 +57,7 @@ staffJobs = {
 
 ### 5. Written question bank
 
-`post_basic.questions = {}` is intentionally empty until you approve POST material. A course with no written questions **cannot complete or award accreditation**, even if all practical results pass. Example question shape:
+`server/questions.lua` contains an intentionally empty `EducationQuestions.post.post_basic` list until you approve POST material. A course with no written questions **cannot complete or award accreditation**, even if all practical results pass. Example question shape:
 
 ```lua
 questions = {
@@ -97,5 +97,15 @@ questions = {
 - Cancelling an exam clears its in-memory session, but currently does not refund a charged fee.
 - Practical-only courses at other institutions can omit `requireWritten` and `questions`; they still require every configured practical assessment to pass.
 - Completion records are milestones, not government license issuance.
-- **Security review pending:** exam answer keys currently live in the shared `config.lua`, so the client can inspect them. Move answer keys into server-only configuration before using examinations competitively.
+- **Security improvement committed:** questions and answer keys now live in `server/questions.lua`, loaded server-side only. Continue testing session security, fee handling, and grading before consequential use.
 - **Credential administration pending:** revocation/suspension workflows and audited result corrections are not implemented. Do not use this build for consequential live accreditation decisions.
+
+## Current source-of-truth files
+
+- `config.lua`: institution metadata, POST location/job placeholders, fees, practical requirements.
+- `server/questions.lua`: **server-only** written questions and answer keys; do not add this file to shared scripts.
+- `server/server.lua`: authenticated enrollment, examination, practical assessment, credential logic.
+- `sql/pm_education.sql`: all four database tables.
+- `fxmanifest.lua`: includes `@oxmysql/lib/MySQL.lua` before the server scripts.
+
+**Known testing limitation:** Instructor access stays disabled until a real job/grade and management desk are configured. POST enrollment and examinations likewise need real NPC positions. No location has been invented.
