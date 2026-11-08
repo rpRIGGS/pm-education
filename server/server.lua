@@ -292,6 +292,11 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         questions[index] = { question = question.question, answers = answers }
         answerKey[index] = { correct = question.correct, count = #answers }
     end
+    local threshold = tonumber(course.passPercent)
+    if not threshold or threshold < 0 or threshold > 100 then
+        activeExams[src] = nil
+        return notify(src, 'Exam passing threshold is not configured correctly; no fee charged.', 'error')
+    end
     local fee = course.examFee or 0
     local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, record.id, 'exam', fee, paymentMethod)
     if not paid or not paymentId then
@@ -310,7 +315,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
             return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam failed. Refund needs administrator review.', 'error')
         end
     end
-    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey }
+    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey, passPercent = threshold }
     local completedOk, credited = pcall(paymentComplete, paymentId, record.id, institutionId, fee)
     if not completedOk or not credited then
         notify(src, 'Exam started; society payment requires administrator reconciliation.', 'error')
@@ -340,11 +345,7 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
         if answers[index] == question.correct then correct = correct + 1 end
     end
     local score = math.floor(correct * 100 / #answerKey)
-    local threshold = tonumber(course.passPercent)
-    if not threshold or threshold < 0 or threshold > 100 then
-        return notify(src, 'Invalid exam passing threshold configuration.', 'error')
-    end
-    local passed = score >= threshold
+    local passed = score >= session.passPercent
     local ok, saved = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json) VALUES (?, ?, ?, ?, ?)',
         {session.enrollmentId, citizenid, score, passed and 1 or 0, json.encode(answers)})
