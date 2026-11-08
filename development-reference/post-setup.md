@@ -197,3 +197,12 @@ An exam session now acquires an in-memory lock **before** the first yielding enr
 - The submission handler consumes the exam session before yielding to database writes, so duplicate submissions cannot insert duplicate attempts.
 - Submission revalidates enrollment ownership and active status.
 - These protections require live verification with QBCore/oxmysql. In-memory sessions do not persist through a resource restart.
+
+## Payment and examination error handling (implemented)
+
+- Enrollment payment errors release the per-citizen enrollment lock. Unexpected money debit/refund exceptions are flagged for administrator reconciliation instead of silently assuming no transfer occurred.
+- Society-credit failures are logged in the server console with the payment number. Never blindly repeat a credit if its result is uncertain.
+- An exam question bank is validated **before charging**: each question requires text, two or more answer labels, and a valid server-only answer index.
+- A course must explicitly configure `passPercent` in the inclusive range 0-100; the server no longer silently defaults to 70%.
+- If a passing attempt is saved but course completion refresh fails, the result remains stored and an administrator-review notification is emitted.
+- **Not yet runtime-tested:** use your development server to exercise qb-banking account credits, cash/bank debits, interrupted checkout, and exam save/completion failure paths.
