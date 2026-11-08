@@ -206,3 +206,11 @@ An exam session now acquires an in-memory lock **before** the first yielding enr
 - A course must explicitly configure `passPercent` in the inclusive range 0-100; the server no longer silently defaults to 70%.
 - If a passing attempt is saved but course completion refresh fails, the result remains stored and an administrator-review notification is emitted.
 - **Not yet runtime-tested:** use your development server to exercise qb-banking account credits, cash/bank debits, interrupted checkout, and exam save/completion failure paths.
+
+## Settlement and assessment improvements
+
+- Enrollment locks remain held until society settlement finishes, preventing a new enrollment attempt from racing the previous checkout.
+- A failed or uncertain society credit no longer produces an unqualified successful-payment message. The enrollment or exam remains available, with the payment flagged for administrator review.
+- Exam passing thresholds are validated before taking fees and snapshotted per session, alongside the server-only answer key.
+- Empty written question banks return a clear student-facing message instead of silently ignoring the examiner request.
+- Instructor practical evaluations remain recorded if the subsequent course-completion calculation fails; the examiner is notified that administrator review is needed.
