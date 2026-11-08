@@ -8,29 +8,44 @@ local openRevision
 local editExam
 
 local function editQuestion(question)
-    local input = lib.inputDialog('Edit written question', {
-        {type='textarea', label='Question', required=true, default=question.question or '', max=2000},
-        {type='textarea', label='Answer A', required=true, default=question.answers and question.answers[1] or '', max=500},
-        {type='textarea', label='Answer B', required=true, default=question.answers and question.answers[2] or '', max=500},
-        {type='textarea', label='Answer C (optional)', default=question.answers and question.answers[3] or '', max=500},
-        {type='textarea', label='Answer D (optional)', default=question.answers and question.answers[4] or '', max=500},
-        {type='number', label='Correct answer number (1-4)', required=true, default=question.correct or 1, min=1, max=4}
-    })
-    if not input then return nil end
-    local answers = {input[2],input[3]}
-    if input[4] and input[4] ~= '' then answers[#answers+1] = input[4] end
-    if input[5] and input[5] ~= '' then
-        if not input[4] or input[4] == '' then
-            lib.notify({description='Fill answer C before answer D.',type='error'})
-            return nil
-        end
-        answers[#answers+1] = input[5]
+    local existing = question.answers or {}
+    local fields = {
+        {type='textarea', label='Question', required=true, default=question.question or '', max=2000}
+    }
+    for index=1,8 do
+        fields[#fields+1] = {
+            type='textarea',
+            label=('Answer %s%s'):format(string.char(64+index),index<=2 and ' (required)' or ' (optional)'),
+            required=index<=2,
+            default=existing[index] or '',
+            max=500
+        }
     end
-    if input[6] > #answers then
-        lib.notify({description='Correct answer must refer to a filled answer.',type='error'})
+    fields[#fields+1] = {
+        type='number', label='Correct answer number (1-8)', required=true,
+        default=question.correct or 1, min=1, max=8
+    }
+    local input=lib.inputDialog('Edit written question',fields)
+    if not input then return nil end
+    local answers={}
+    local gap=false
+    for index=2,9 do
+        local value=input[index]
+        if type(value)=='string' and value:match('%S') then
+            if gap then
+                lib.notify({description='Answer choices must be consecutive, without blank gaps.',type='error'})
+                return nil
+            end
+            answers[#answers+1]=value
+        else
+            gap=true
+        end
+    end
+    if #answers<2 or input[10]>#answers or input[10]%1~=0 then
+        lib.notify({description='Provide at least two answers and a valid correct answer number.',type='error'})
         return nil
     end
-    return {question=input[1],answers=answers,correct=input[6]}
+    return {question=input[1],answers=answers,correct=input[10]}
 end
 
 editExam=function(institutionId, record)
