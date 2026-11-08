@@ -1,0 +1,5 @@
+# Server-side catalog exports may include private examination answer keys.
+export_*.json
+**/export_*.json
+*.log
+.DS_Store
