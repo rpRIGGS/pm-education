@@ -711,7 +711,7 @@ end)
 
 lib.callback.register('pm-education:server:myCredentials', function(src)
     local _, citizenid = playerFor(src)
-    if not citizenid then return {} end
+    if not citizenid then return nil end
     return MySQL.query.await(
         'SELECT id, institution_id, credential_id, credential_label, status, issued_at, expires_at FROM pm_education_credentials WHERE citizenid = ? ORDER BY id DESC LIMIT 100',
         { citizenid })
