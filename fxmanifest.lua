@@ -21,7 +21,8 @@ server_scripts {
     'server/catalog.lua',
     'server/import.lua',
     'server/export.lua',
-    'server/catalog_check.lua'
+    'server/catalog_check.lua',
+    'server/course_discovery.lua'
 }
 
 dependencies {
