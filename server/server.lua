@@ -54,6 +54,37 @@ local function charge(player, amount, reason)
 end
 
 
+-- Payment ledger is authoritative for reconciliation; cash removal is still QBCore.
+-- A pending row is created before money moves, and uncertain failures remain visible.
+local function paymentStart(player, citizenid, institutionId, courseId, enrollmentId, paymentType, amount)
+    if type(amount) ~= 'number' or amount < 0 or amount % 1 ~= 0 then return nil, 'Invalid fee configuration' end
+    local ok, paymentId = pcall(MySQL.insert.await,
+        'INSERT INTO pm_education_payments (citizenid, institution_id, course_id, enrollment_id, payment_type, amount) VALUES (?, ?, ?, ?, ?, ?)',
+        { citizenid, institutionId, courseId, enrollmentId, paymentType, amount })
+    if not ok or not paymentId then return nil, 'Payment ledger unavailable' end
+    if not charge(player, amount, 'PM Education ' .. paymentType) then
+        MySQL.update.await("UPDATE pm_education_payments SET status = 'failed', details = 'Insufficient cash or debit rejected' WHERE id = ?", { paymentId })
+        return nil, 'Insufficient cash'
+    end
+    MySQL.update.await("UPDATE pm_education_payments SET status = 'charged' WHERE id = ?", { paymentId })
+    return paymentId
+end
+
+local function paymentComplete(paymentId, enrollmentId)
+    MySQL.update.await(
+        "UPDATE pm_education_payments SET status = 'completed', enrollment_id = COALESCE(?, enrollment_id) WHERE id = ? AND status = 'charged'",
+        { enrollmentId, paymentId })
+end
+
+local function paymentRefund(player, paymentId, amount, details)
+    local refunded = amount == 0 or player.Functions.AddMoney('cash', amount, 'PM Education Refund')
+    MySQL.update.await(
+        'UPDATE pm_education_payments SET status = ?, details = ? WHERE id = ?',
+        { refunded and 'refunded' or 'refund_failed', details, paymentId })
+    return refunded
+end
+
+
 -- Completion is calculated from SQL results, never client-reported progress.
 local function courseProgress(enrollmentId, course, institutionId, courseId)
     local writtenRequired = #getQuestions(institutionId, courseId) > 0
@@ -123,18 +154,20 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId)
         return notify(src, 'Enrollment already exists. See My Enrollments.', 'error')
     end
     local fee = course.enrollmentFee or 0
-    if not charge(player, fee, 'PM Education Enrollment') then
+    local paymentId, paymentError = paymentStart(player, citizenid, institutionId, courseId, nil, 'enrollment', fee)
+    if not paymentId then
         enrollmentLocks[citizenid] = nil
-        return notify(src, 'Insufficient cash for enrollment.', 'error')
+        return notify(src, paymentError, 'error')
     end
     local ok, id = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id) VALUES (?, ?, ?)',
         { citizenid, institutionId, courseId })
     enrollmentLocks[citizenid] = nil
     if not ok or not id then
-        if fee > 0 then player.Functions.AddMoney('cash', fee, 'PM Education Enrollment Refund') end
-        return notify(src, 'Enrollment could not be saved. Payment refunded.', 'error')
+        local refunded = paymentRefund(player, paymentId, fee, 'Enrollment insert failed')
+        return notify(src, refunded and 'Enrollment failed. Payment refunded.' or 'Enrollment failed. Refund requires administrator review.', 'error')
     end
+    paymentComplete(paymentId, id)
     notify(src, ('Enrollment #%s created.'):format(id), 'success')
 end)
 
@@ -170,14 +203,16 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         questions[index] = { question = question.question, answers = question.answers }
     end
     local fee = course.examFee or 0
-    if not charge(player, fee, 'PM Education Exam') then return notify(src, 'Insufficient cash for exam.', 'error') end
-    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time() }
+    local paymentId, paymentError = paymentStart(player, citizenid, institutionId, courseId, record.id, 'exam', fee)
+    if not paymentId then return notify(src, paymentError, 'error') end
+    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId }
     local updated = pcall(MySQL.update.await, "UPDATE pm_education_enrollments SET status = 'in_progress' WHERE id = ? AND status = 'enrolled'", {record.id})
     if not updated then
         activeExams[src] = nil
-        if fee > 0 then player.Functions.AddMoney('cash', fee, 'PM Education Exam Refund') end
-        return notify(src, 'Exam could not start. Payment refund attempted.', 'error')
+        local refunded = paymentRefund(player, paymentId, fee, 'Exam startup failed')
+        return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam startup failed. Refund requires administrator review.', 'error')
     end
+    paymentComplete(paymentId, record.id)
     TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, questions)
 end)
 
