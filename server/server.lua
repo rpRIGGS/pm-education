@@ -199,9 +199,21 @@ local function refreshCompletion(enrollmentId, institutionId, courseId)
                 "SELECT citizenid, status FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND course_id = ?",
                 { enrollmentId, institutionId, courseId })
             if record and record.status == 'completed' then
+                local label = course.credentialLabel or course.credentialId
+                local catalogOk, catalogRow = pcall(MySQL.single.await,
+                    "SELECT payload_json FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'credential' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1",
+                    {institutionId, course.credentialId})
+                if not catalogOk then error('Credential catalog unavailable during completion') end
+                if catalogRow then
+                    local decoded, credential = pcall(json.decode, catalogRow.payload_json)
+                    if not decoded or type(credential) ~= 'table' or type(credential.label) ~= 'string' then
+                        error('Published credential payload invalid')
+                    end
+                    label = credential.label
+                end
                 MySQL.insert.await(
                     "INSERT INTO pm_education_credentials (enrollment_id, citizenid, institution_id, credential_id, credential_label) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
-                    { enrollmentId, record.citizenid, institutionId, course.credentialId, course.credentialLabel or course.credentialId })
+                    { enrollmentId, record.citizenid, institutionId, course.credentialId, label })
             end
         end
     end
