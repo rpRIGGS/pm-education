@@ -19,6 +19,7 @@ server_scripts {
 
 dependencies {
     'qb-core',
+    'qb-banking',
     'qb-target',
     'ox_lib',
     'oxmysql'
