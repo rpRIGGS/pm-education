@@ -203,10 +203,10 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     if not acquirePublication(lockKey) then return false end
     -- Recheck the draft after taking the lock: a concurrent staff edit may
     -- have changed the payload while publication was being prepared.
-    local current = MySQL.single.await(
+    local currentOk, current = pcall(MySQL.single.await,
         "SELECT payload_json FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'draft'",
         {catalogId, institutionId})
-    if not current or current.payload_json ~= row.payload_json then
+    if not currentOk or not current or current.payload_json ~= row.payload_json then
         releasePublication(lockKey)
         return false
     end
