@@ -2,6 +2,10 @@ local QBCore = exports['qb-core']:GetCoreObject()
 local activeExams = {}
 local enrollmentLocks = {}
 
+local function getQuestions(institutionId, courseId)
+    return EducationQuestions and EducationQuestions[institutionId] and EducationQuestions[institutionId][courseId] or {}
+end
+
 local function notify(src, message, kind)
     TriggerClientEvent('pm-education:client:notify', src, message, kind)
 end
@@ -50,8 +54,8 @@ end
 
 
 -- Completion is calculated from SQL results, never client-reported progress.
-local function courseProgress(enrollmentId, course)
-    local writtenRequired = type(course.questions) == 'table' and #course.questions > 0
+local function courseProgress(enrollmentId, course, institutionId, courseId)
+    local writtenRequired = #getQuestions(institutionId, courseId) > 0
     local writtenPassed = false
     if writtenRequired then
         local attempt = MySQL.single.await(
@@ -85,7 +89,7 @@ end
 local function refreshCompletion(enrollmentId, institutionId, courseId)
     local course = getCourse(institutionId, courseId)
     if not course then return end
-    local progress = courseProgress(enrollmentId, course)
+    local progress = courseProgress(enrollmentId, course, institutionId, courseId)
     if progress.complete then
         MySQL.update.await(
             "UPDATE pm_education_enrollments SET status = 'completed' WHERE id = ? AND institution_id = ? AND course_id = ? AND status IN ('enrolled','in_progress')",
@@ -150,7 +154,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
     if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId)
-        or type(course.questions) ~= 'table' or #course.questions == 0 then return end
+        or #getQuestions(institutionId, courseId) == 0 then return end
     if activeExams[src] then return notify(src, 'An exam is already active.', 'error') end
     local record = enrollment(citizenid, institutionId, courseId)
     if not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress') then
@@ -159,7 +163,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local fee = course.examFee or 0
     if not charge(player, fee, 'PM Education Exam') then return notify(src, 'Insufficient cash for exam.', 'error') end
     local questions = {}
-    for index, question in ipairs(course.questions) do
+    for index, question in ipairs(getQuestions(institutionId, courseId)) do
         questions[index] = { question = question.question, answers = question.answers }
     end
     activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time() }
@@ -175,13 +179,14 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local _, citizenid = playerFor(src)
     if citizenid ~= session.citizenid or os.time() - session.started > 1800 then return end
     local course = getCourse(institutionId, courseId)
-    if not course or type(answers) ~= 'table' or #answers ~= #course.questions then return end
+    local questionBank = getQuestions(institutionId, courseId)
+    if not course or type(answers) ~= 'table' or #questionBank == 0 or #answers ~= #questionBank then return end
     local correct = 0
-    for index, question in ipairs(course.questions) do
+    for index, question in ipairs(getQuestions(institutionId, courseId)) do
         if type(answers[index]) ~= 'number' or answers[index] % 1 ~= 0 or answers[index] < 1 or answers[index] > #question.answers then return end
         if answers[index] == question.correct then correct = correct + 1 end
     end
-    local score = math.floor(correct * 100 / #course.questions)
+    local score = math.floor(correct * 100 / #questionBank)
     local passed = score >= (course.passPercent or 70)
     MySQL.insert.await(
         'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json) VALUES (?, ?, ?, ?, ?)',
@@ -270,7 +275,7 @@ lib.callback.register('pm-education:server:courseProgress', function(src, instit
     if not record then return nil end
     local course = getCourse(institutionId, record.course_id)
     if not course then return nil end
-    local progress = courseProgress(enrollmentId, course)
+    local progress = courseProgress(enrollmentId, course, institutionId, courseId)
     progress.enrollmentStatus = record.status
     return progress
 end)
@@ -286,7 +291,7 @@ lib.callback.register('pm-education:server:myCourseProgress', function(src, inst
     if not record then return nil end
     local course = getCourse(institutionId, record.course_id)
     if not course then return nil end
-    local progress = courseProgress(enrollmentId, course)
+    local progress = courseProgress(enrollmentId, course, institutionId, courseId)
     progress.enrollmentStatus = record.status
     return progress
 end)
