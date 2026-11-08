@@ -370,28 +370,6 @@ lib.callback.register('pm-education:server:myPayments', function(src, institutio
         { citizenid, institutionId }) or {}
 end)
 
--- Return only curriculum-facing fields. Server retains authority over fees, permissions,
--- evaluation submissions, and enrollment state.
-lib.callback.register('pm-education:server:courseOutline', function(src, institutionId, courseId, enrollmentId)
-    local player = playerFor(src)
-    if not player or type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 or
-        not instructorAuthorized(src, institutionId) then return nil end
-    local enrolled = MySQL.single.await(
-        'SELECT course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ?',
-        {enrollmentId, institutionId})
-    if not enrolled or enrolled.course_id ~= courseId then return nil end
-    local course = getCourse(institutionId, courseId, enrollmentId)
-    if not course then return nil end
-    local requirements = {}
-    for _, requirement in ipairs(course.practicalRequirements or {}) do
-        requirements[#requirements + 1] = {id = requirement.id, label = requirement.label}
-    end
-    return {
-        label = course.label,
-        requireWritten = course.requireWritten == true,
-        practicalRequirements = requirements
-    }
-end)
 
 lib.callback.register('pm-education:server:myEnrollments', function(src, institutionId)
     local _, citizenid = playerFor(src)
@@ -557,6 +535,30 @@ local function instructorAuthorized(src, institutionId)
  end
  return false
 end
+
+-- Return only curriculum-facing fields. Server retains authority over fees, permissions,
+-- evaluation submissions, and enrollment state.
+lib.callback.register('pm-education:server:courseOutline', function(src, institutionId, courseId, enrollmentId)
+    local player = playerFor(src)
+    if not player or type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 or
+        not instructorAuthorized(src, institutionId) then return nil end
+    local enrolled = MySQL.single.await(
+        'SELECT course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ?',
+        {enrollmentId, institutionId})
+    if not enrolled or enrolled.course_id ~= courseId then return nil end
+    local course = getCourse(institutionId, courseId, enrollmentId)
+    if not course then return nil end
+    local requirements = {}
+    for _, requirement in ipairs(course.practicalRequirements or {}) do
+        requirements[#requirements + 1] = {id = requirement.id, label = requirement.label}
+    end
+    return {
+        label = course.label,
+        requireWritten = course.requireWritten == true,
+        practicalRequirements = requirements
+    }
+end)
+
 
 lib.callback.register('pm-education:server:instructorStudents', function(src, institutionId)
  if not instructorAuthorized(src, institutionId) then return {} end
