@@ -1,6 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local activeExams = {}
 local enrollmentLocks = {}
+local credentialLocks = {}
 
 local function getQuestions(institutionId, courseId)
     return EducationQuestions and EducationQuestions[institutionId] and EducationQuestions[institutionId][courseId] or {}
@@ -222,7 +223,7 @@ end
 lib.callback.register('pm-education:server:instructorStudents', function(src, institutionId)
  if not instructorAuthorized(src, institutionId) then return {} end
  local rows = MySQL.query.await(
-  "SELECT id, citizenid, course_id, status FROM pm_education_enrollments WHERE institution_id = ? AND status IN ('enrolled','in_progress') ORDER BY id DESC LIMIT 100",
+  "SELECT id, citizenid, course_id, status FROM pm_education_enrollments WHERE institution_id = ? ORDER BY id DESC LIMIT 100",
   {institutionId}) or {}
  local institution = Config.Institutions[institutionId]
  for _, row in ipairs(rows) do
@@ -362,6 +363,8 @@ lib.callback.register('pm-education:server:setCredentialStatus', function(src, i
     end
     local actor = QBCore.Functions.GetPlayer(src)
     if not actor then return false, 'Instructor not found' end
+    if credentialLocks[credentialId] then return false, 'Credential update already in progress' end
+    credentialLocks[credentialId] = true
     -- A transaction makes status and audit inseparable. No silent, unaudited changes.
     local ok, result, message = pcall(function()
         local record = MySQL.single.await(
@@ -384,6 +387,7 @@ lib.callback.register('pm-education:server:setCredentialStatus', function(src, i
         if not success then return false, 'Database transaction failed' end
         return true, 'Credential status updated and audited'
     end)
+    credentialLocks[credentialId] = nil
     if not ok then return false, 'Credential update failed' end
     return result, message
 end)
