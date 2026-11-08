@@ -748,6 +748,20 @@ local function credentialAdminAuthorized(src, institutionId)
     return false
 end
 
+-- Credential administrators can locate students without also holding an instructor job.
+lib.callback.register('pm-education:server:adminStudents', function(src, institutionId)
+    if not credentialAdminAuthorized(src, institutionId) then return nil end
+    local rows = MySQL.query.await(
+        'SELECT id, citizenid, course_id, status FROM pm_education_enrollments WHERE institution_id = ? ORDER BY id DESC LIMIT 100',
+        {institutionId})
+    if not rows then return nil end
+    for _, row in ipairs(rows) do
+        local course = getCourse(institutionId, row.course_id, row.id)
+        row.courseLabel = course and course.label or row.course_id
+    end
+    return rows
+end)
+
 lib.callback.register('pm-education:server:adminCredentials', function(src, institutionId, enrollmentId)
     if not credentialAdminAuthorized(src, institutionId) or type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 then return {} end
     local record = MySQL.single.await(
