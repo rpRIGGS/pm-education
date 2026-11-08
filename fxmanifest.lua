@@ -19,7 +19,8 @@ server_scripts {
     'server/questions.lua',
     'server/server.lua',
     'server/catalog.lua',
-    'server/import.lua'
+    'server/import.lua',
+    'server/export.lua'
 }
 
 dependencies {
