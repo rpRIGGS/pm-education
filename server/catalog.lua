@@ -77,16 +77,20 @@ lib.callback.register('pm-education:server:catalogCreateDraft', function(src, in
     if not allowed or not validKey(key) or not validPayload(kind, payload) then return nil end
     local encoded = json.encode(payload)
     if not encoded or #encoded > 100000 then return nil end
-    local ok, id = pcall(function()
-        return MySQL.transaction.await({
-            {query = [[INSERT INTO pm_education_catalog
-                (institution_id, content_type, content_key, revision, status, payload_json, source_kind, created_by)
-                SELECT ?, ?, ?, COALESCE(MAX(revision), 0) + 1, 'draft', ?, 'ingame', ?
-                FROM pm_education_catalog
-                WHERE institution_id = ? AND content_type = ? AND content_key = ?]],
-             values = {institutionId, kind, key, encoded, actor, institutionId, kind, key}}
-        })
+    local ok, result = pcall(function()
+        local latest = MySQL.scalar.await(
+            'SELECT COALESCE(MAX(revision), 0) FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ?',
+            {institutionId, kind, key})
+        local nextRevision = tonumber(latest or 0) + 1
+        local inserted = MySQL.insert.await(
+            "INSERT INTO pm_education_catalog (institution_id, content_type, content_key, revision, status, payload_json, source_kind, created_by) VALUES (?, ?, ?, ?, 'draft', ?, 'ingame', ?)",
+            {institutionId, kind, key, nextRevision, encoded, actor})
+        if not inserted then return nil end
+        MySQL.insert.await(
+            'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
+            {inserted, institutionId, actor, 'create_draft', 'Created revision ' .. nextRevision})
+        return inserted
     end)
-    if not ok or not id then return nil end
-    return true
+    if not ok then return nil end
+    return result
 end)
