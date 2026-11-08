@@ -1,12 +1,11 @@
 fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
+author 'mundstock; PowerMoves RP contributors'
+description 'PM Education - shared institutional enrollment and examination foundation'
+version '0.2.0'
 
-author 'mundstock'
-description 'University System for Ventura Roleplay'
-version '1.0.0'
-
-shared_scripts { 
+shared_scripts {
     '@ox_lib/init.lua',
     'config.lua'
 }
@@ -16,5 +15,7 @@ server_script 'server/server.lua'
 
 dependencies {
     'qb-core',
-    'ox_lib'
+    'qb-target',
+    'ox_lib',
+    'oxmysql'
 }
