@@ -28,7 +28,7 @@ RegisterCommand('pm_education_export', function(source, args)
             status = row.status, source = row.source_kind, payload = payload
         }
     end
-    local filename = ('development/export_%s.json'):format(institutionId)
+    local filename = ('export_%s.json'):format(institutionId)
     local encoded = json.encode(output)
     if not encoded or not SaveResourceFile(GetCurrentResourceName(), filename, encoded, #encoded) then
         print('[pm-education] Export write failed: '..filename)
