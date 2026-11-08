@@ -342,6 +342,23 @@ local function openInstructorStudent(institutionId, student)
  lib.showContext('pm_education_instructor_student')
 end
 
+local function openCredentialAdministration(institutionId)
+ local students = lib.callback.await('pm-education:server:adminStudents', false, institutionId)
+ if not students then return notify('Credential administration unavailable or access denied.', 'error') end
+ local options = {}
+ for _, student in ipairs(students) do
+  local selected = student
+  options[#options + 1] = {
+   title = selected.citizenid,
+   description = ('Enrollment #%s | %s | %s'):format(selected.id, selected.courseLabel, selected.status),
+   onSelect = function() manageStudentCredentials(institutionId, selected) end
+  }
+ end
+ if #options == 0 then options[1] = {title = 'No student enrollments', disabled = true} end
+ lib.registerContext({id = 'pm_education_credential_admin_students', title = 'Credential Administration', options = options})
+ lib.showContext('pm_education_credential_admin_students')
+end
+
 local function openInstructorManagement(institutionId)
  local students = lib.callback.await('pm-education:server:instructorStudents', false, institutionId)
  if not students then return notify('Instructor records unavailable or access denied.', 'error') end
@@ -355,6 +372,11 @@ local function openInstructorManagement(institutionId)
    title='Institution Curriculum Administration',
    description='Edit examinations, questions, answers and published revisions',
    onSelect=function() OpenPMEducationCatalog(institutionId) end
+  }
+  options[#options + 1] = {
+   title='Credential Administration',
+   description='Review and manage awarded student credentials',
+   onSelect=function() openCredentialAdministration(institutionId) end
   }
  end
  for _, student in ipairs(students) do
