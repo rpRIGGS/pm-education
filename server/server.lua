@@ -341,10 +341,15 @@ end)
 
 -- Return only curriculum-facing fields. Server retains authority over fees, permissions,
 -- evaluation submissions, and enrollment state.
-lib.callback.register('pm-education:server:courseOutline', function(src, institutionId, courseId)
+lib.callback.register('pm-education:server:courseOutline', function(src, institutionId, courseId, enrollmentId)
     local player = playerFor(src)
-    if not player then return nil end
-    local course = getCourse(institutionId, courseId)
+    if not player or type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 or
+        not instructorAuthorized(src, institutionId) then return nil end
+    local enrolled = MySQL.single.await(
+        'SELECT course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ?',
+        {enrollmentId, institutionId})
+    if not enrolled or enrolled.course_id ~= courseId then return nil end
+    local course = getCourse(institutionId, courseId, enrollmentId)
     if not course then return nil end
     local requirements = {}
     for _, requirement in ipairs(course.practicalRequirements or {}) do
