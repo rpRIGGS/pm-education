@@ -110,22 +110,21 @@ lib.callback.register('pm-education:server:catalogCreateDraft', function(src, in
                 'SELECT COALESCE(MAX(revision), 0) FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ?',
                 {institutionId, kind, key})
             local nextRevision = tonumber(latest or 0) + 1
-            local inserted = MySQL.insert.await(
-                "INSERT INTO pm_education_catalog (institution_id, content_type, content_key, revision, status, payload_json, source_kind, created_by) VALUES (?, ?, ?, ?, 'draft', ?, 'ingame', ?)",
-                {institutionId, kind, key, nextRevision, encoded, actor})
-            if not inserted then return nil end
-            local auditOk, auditResult = pcall(MySQL.insert.await,
-                'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
-                {inserted, institutionId, actor, 'create_draft', 'Created revision ' .. nextRevision})
-            if not auditOk or not auditResult then
-                -- Do not expose an unaudited authoring revision as a successful draft.
-                -- Preserve the failed record for administrator reconciliation.
-                print(('[pm-education] Draft #%s created without audit; administrator review required'):format(inserted))
-                return false
-            end
-            return inserted
+            local committed = MySQL.transaction.await({
+                {
+                    query = "INSERT INTO pm_education_catalog (institution_id, content_type, content_key, revision, status, payload_json, source_kind, created_by) VALUES (?, ?, ?, ?, 'draft', ?, 'ingame', ?)",
+                    values = {institutionId, kind, key, nextRevision, encoded, actor}
+                },
+                {
+                    query = "INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) SELECT id, ?, ?, 'create_draft', ? FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ? AND revision = ?",
+                    values = {institutionId, actor, 'Created revision ' .. nextRevision, institutionId, kind, key, nextRevision}
+                }
+            })
+            if not committed then return nil end
+            return MySQL.scalar.await(
+                'SELECT id FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ? AND revision = ?',
+                {institutionId, kind, key, nextRevision})
         end)
-        if ok and result == false then return nil end
         if ok and result then return result end
         if not ok then
             print(('[pm-education] Catalog draft attempt %d failed for %s/%s/%s: %s'):format(
