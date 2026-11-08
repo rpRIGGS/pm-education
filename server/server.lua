@@ -110,6 +110,7 @@ local function getCourse(institutionId, courseId, enrollmentId)
 end
 
 local function nearInteraction(src, institutionId, kind, courseId)
+    if type(institutionId) ~= 'string' or (kind ~= 'admissions' and kind ~= 'examiners') then return false end
     local institution = Config.Institutions[institutionId]
     if not institution or institution.enabled == false then return false end
     local ped = GetPlayerPed(src)
@@ -122,7 +123,8 @@ local function nearInteraction(src, institutionId, kind, courseId)
                 if offered == courseId then allowed = true break end
             end
         end
-        if allowed and #(position - vector3(point.coords.x, point.coords.y, point.coords.z)) <= 5.0 then return true end
+        if allowed and point.coords and
+            #(position - vector3(point.coords.x, point.coords.y, point.coords.z)) <= 5.0 then return true end
     end
     return false
 end
