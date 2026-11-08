@@ -226,12 +226,20 @@ end
 local function courseProgress(enrollmentId, course, institutionId, courseId)
     local availableQuestions, _, catalogError = getQuestions(institutionId, courseId, enrollmentId)
     if catalogError then error('Unable to determine course written requirements: ' .. catalogError) end
-    local writtenRequired = #availableQuestions > 0
+    local writtenRequired = course.requireWritten == true or
+        (course.requireWritten == nil and #availableQuestions > 0)
     local writtenPassed = false
-    if writtenRequired then
-        local attempt = MySQL.single.await(
-            'SELECT id FROM pm_education_attempts WHERE enrollment_id = ? AND passed = 1 ORDER BY id DESC LIMIT 1',
-            { enrollmentId })
+    if writtenRequired and #availableQuestions > 0 then
+        -- A pinned enrollment can only be satisfied by its assigned exam revision.
+        -- Legacy NULL revision enrollments retain their historical attempt behavior.
+        local examRevision = MySQL.scalar.await(
+            'SELECT exam_revision_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND course_id = ?',
+            {enrollmentId, institutionId, courseId})
+        local query = examRevision
+            and 'SELECT id FROM pm_education_attempts WHERE enrollment_id = ? AND catalog_revision_id = ? AND passed = 1 ORDER BY id DESC LIMIT 1'
+            or 'SELECT id FROM pm_education_attempts WHERE enrollment_id = ? AND passed = 1 ORDER BY id DESC LIMIT 1'
+        local params = examRevision and {enrollmentId, examRevision} or {enrollmentId}
+        local attempt = MySQL.single.await(query, params)
         writtenPassed = attempt ~= nil
     end
     local practical = {}
@@ -247,8 +255,8 @@ local function courseProgress(enrollmentId, course, institutionId, courseId)
         requiredCount = requiredCount + 1
         if practical[requirement.id] == 'pass' then passedCount = passedCount + 1 end
     end
-    local hasRequirements = course.requireWritten or writtenRequired or requiredCount > 0
-    local complete = hasRequirements and (not course.requireWritten or writtenRequired) and (not writtenRequired or writtenPassed) and passedCount == requiredCount
+    local hasRequirements = writtenRequired or requiredCount > 0
+    local complete = hasRequirements and (not writtenRequired or writtenPassed) and passedCount == requiredCount
     return {
         writtenRequired = writtenRequired,
         writtenPassed = writtenPassed,
