@@ -271,8 +271,22 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local questions = {}
     local answerKey = {}
     for index, question in ipairs(getQuestions(institutionId, courseId)) do
-        questions[index] = { question = question.question, answers = question.answers }
-        answerKey[index] = { correct = question.correct, count = #question.answers }
+        if type(question.question) ~= 'string' or type(question.answers) ~= 'table' or
+            #question.answers < 2 or type(question.correct) ~= 'number' or
+            question.correct % 1 ~= 0 or question.correct < 1 or question.correct > #question.answers then
+            activeExams[src] = nil
+            return notify(src, ('Question bank entry %d is invalid; no exam fee charged.'):format(index), 'error')
+        end
+        local answers = {}
+        for answerIndex, label in ipairs(question.answers) do
+            if type(label) ~= 'string' or label == '' then
+                activeExams[src] = nil
+                return notify(src, ('Question bank answer %d:%d is invalid; no exam fee charged.'):format(index, answerIndex), 'error')
+            end
+            answers[answerIndex] = label
+        end
+        questions[index] = { question = question.question, answers = answers }
+        answerKey[index] = { correct = question.correct, count = #answers }
     end
     local fee = course.examFee or 0
     local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, record.id, 'exam', fee, paymentMethod)
