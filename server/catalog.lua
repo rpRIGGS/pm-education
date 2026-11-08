@@ -166,20 +166,29 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     if not decoded or not validPayload(row.content_type, payload) then return false end
     if row.content_type == 'exam' then
         if #payload.questions == 0 then return false end
-        local course = (Config.Institutions[institutionId].courses or {})[row.content_key]
-        if not course then return false end
-        -- A published examination must not be an empty or malformed answer key.
-        for _, question in ipairs(payload.questions) do
-            if type(question.correct) ~= 'number' or question.correct < 1 or
-                question.correct > #question.answers then return false end
-        end
         if not (Config.Institutions[institutionId].courses or {})[row.content_key] then return false end
     elseif row.content_type == 'course' then
-        if not (Config.Institutions[institutionId].courses or {})[row.content_key] then return false end
+        local base = (Config.Institutions[institutionId].courses or {})[row.content_key]
+        if not base then return false end
+        -- Materialize optional inherited requirements before publication so
+        -- later config edits cannot silently change enrolled students' rules.
+        if payload.requireWritten == nil then payload.requireWritten = base.requireWritten == true end
+        if payload.practicalRequirements == nil then
+            payload.practicalRequirements = base.practicalRequirements or {}
+        end
+        if payload.credentialId == nil then payload.credentialId = base.credentialId end
+        if payload.credentialLabel == nil then payload.credentialLabel = base.credentialLabel end
+        if not validPayload('course', payload) then return false end
     end
+    local encoded = json.encode(payload)
+    if not encoded or #encoded > 100000 then return false end
     local lockKey = institutionId .. '/' .. row.content_type .. '/' .. row.content_key
     if not acquirePublication(lockKey) then return false end
     local transactionOk, switched = pcall(MySQL.transaction.await, {
+        {
+            query = "UPDATE pm_education_catalog SET payload_json = ? WHERE id = ? AND institution_id = ? AND status = 'draft'",
+            values = {encoded, catalogId, institutionId}
+        },
         {
             query = "UPDATE pm_education_catalog SET status = 'retired' WHERE institution_id = ? AND content_type = ? AND content_key = ? AND status = 'published'",
             values = {institutionId, row.content_type, row.content_key}
