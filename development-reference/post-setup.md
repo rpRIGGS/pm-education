@@ -142,3 +142,13 @@ Test status changes and audit persistence on the development database before liv
 - Final society banking account mapping and optional qb-inventory certificate artwork.
 
 **Development rule:** implement generalized server-side workflows independently of these values; keep missing site-specific values explicitly configurable and disabled rather than inventing them.
+
+## Exam and resource lifecycle safeguards (implementation stage)
+
+- An exam session older than 30 minutes no longer prevents requesting another examination.
+- Written attempts must save successfully before a pass can advance course completion.
+- Failed exam-start database updates clear the session and attempt to refund any exam fee.
+- Courses with no written questions and no practical requirements cannot auto-complete.
+- Spawned admissions/examiner NPCs and instructor qb-target zones are removed on resource stop.
+- Exam fees remain cash-only and society routing is still a placeholder.
+- **Outstanding:** robust payment ledger and reconciliation for failures, race/concurrency tests, and full in-server validation.
