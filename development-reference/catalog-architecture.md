@@ -36,3 +36,11 @@ All calls are restricted to the configured institution administrator job/grade a
 Run SQL in order: `pm_education.sql`, `pm_education_catalog.sql`, then `pm_education_catalog_attempts_migration.sql`. New exam sessions select the latest published exam revision for their institution and course ID. The selected questions, answer key, passing threshold, and catalog revision ID are captured at start. Attempts store `catalog_revision_id`; older attempts remain NULL and retain their previous status. When no published catalog exam exists, the existing server-side question bank remains the fallback. Catalog database errors fail closed instead of silently switching question sources.
 
 A published exam's `content_key` must match an existing configured course ID to be offered at that course's examiner. The course's current configured passing percentage remains authoritative until course-catalog integration is completed. New course and certification drafts are editable catalog content but are not yet automatically enrolled or issued.
+
+## Development template import (implemented)
+After applying the three SQL files, run `pm_education_import` **from the FiveM server console**, not as a player. The importer reads the allowlisted `development/institutions/*.lua` templates, creates revision-1 drafts for content keys that have no catalog records, and leaves every existing revision and in-game edit unchanged. It does not auto-publish. Subsequent changed templates require a deliberate new revision workflow; this first-import command does not overwrite them. Templates must be included in `fxmanifest.lua` and the importer allowlist.
+
+## In-game editor (implemented foundation)
+From an existing configured qb-target institution management desk, choose Institution Curriculum Administration. Authorized leadership can create course, examination, and credential drafts; edit exam title/questions/answer choices/correct answer; remove questions; save drafts; publish; retire; inspect audit history. All catalog callbacks independently enforce job/grade and desk proximity. Publication of an exam requires an existing configured course with a matching key.
+
+**Outstanding:** runtime FiveM test, atomic revision switching, course/credential runtime integration, developer export and conflict-safe synchronization, and robust database transaction boundaries.
