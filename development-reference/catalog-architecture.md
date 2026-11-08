@@ -40,3 +40,8 @@ Draft save, explicit retirement, and publication now pair content changes with a
 
 ## Console export
 Use `pm_education_export post` (or another configured institution ID) in the **server console**. This writes `export_<institution>.json` at the resource root, including all revisions and exam answer keys for development review. Do not put exported JSON in a client-served resource, public repository, or web-accessible folder. Export is a snapshot, not an automatic GitHub push or re-import; review before adapting content back into development templates. The resource directory must be writable by the server process.
+
+## Integrity checks and authoring safeguards
+Run `pm_education_catalog_check post` from the server console after migrations and after bulk curriculum imports. The read-only audit checks JSON payload shape, published exam questions and answer keys, course registry linkage, duplicate active revisions, missing development import fingerprints, duplicate imports, and orphaned historical attempt revision links. It prints findings to the server console and never modifies records. The exam editor supports up to eight answer choices. The exam and completion paths fail closed when published curriculum cannot be loaded, rather than mistaking a database outage for a course with no written requirement.
+
+Catalog draft allocation retries unique-key collisions up to three times. This is not a substitute for transactionally pairing creation and audit, nor for multi-server publication locking. Do not interpret a clean audit as proof that gameplay tests passed.
