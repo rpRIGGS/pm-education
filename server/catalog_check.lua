@@ -159,6 +159,13 @@ local function audit(institutionId)
         report(problems, 'ERROR', 'ORPHAN_CREDENTIAL_AWARDS',
             institutionId .. ': ' .. credentialsWithoutEnrollment .. ' credential records')
     end
+    local unresolvedPayments = MySQL.scalar.await(
+        "SELECT COUNT(*) FROM pm_education_payments WHERE institution_id = ? AND status IN ('pending','charged','refund_failed')",
+        {institutionId})
+    if tonumber(unresolvedPayments or 0) > 0 then
+        report(problems, 'WARN', 'PAYMENTS_REQUIRING_RECONCILIATION',
+            institutionId .. ': ' .. unresolvedPayments .. ' pending/charged/refund-failed records')
+    end
     local mismatchedAttempts = MySQL.scalar.await(
         "SELECT COUNT(*) FROM pm_education_attempts a JOIN pm_education_enrollments e ON a.enrollment_id = e.id WHERE e.institution_id = ? AND e.exam_revision_id IS NOT NULL AND a.passed = 1 AND (a.catalog_revision_id IS NULL OR a.catalog_revision_id <> e.exam_revision_id)",
         {institutionId})
