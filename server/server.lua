@@ -411,13 +411,6 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
     if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId) then return end
-    local selectedQuestions, revisionId, catalogError = getQuestions(institutionId, courseId)
-    if catalogError then
-        return notify(src, 'Examination catalog unavailable. No fee charged.', 'error')
-    end
-    if #selectedQuestions == 0 then
-        return notify(src, 'Written examination questions are not configured yet.', 'error')
-    end
     if activeExams[src] and (activeExams[src].pending or os.time() - activeExams[src].started <= 1800) then
         return notify(src, 'An exam is already active or starting.', 'error')
     end
@@ -427,6 +420,16 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     if not ok or not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress') then
         activeExams[src] = nil
         return notify(src, ok and 'You must have an active enrollment.' or 'Enrollment database unavailable.', 'error')
+    end
+    course = getCourse(institutionId, courseId, record.id)
+    if not course then
+        activeExams[src] = nil
+        return notify(src, 'Assigned curriculum unavailable. No fee charged.', 'error')
+    end
+    local selectedQuestions, revisionId, catalogError = getQuestions(institutionId, courseId, record.id)
+    if catalogError or not selectedQuestions or #selectedQuestions == 0 then
+        activeExams[src] = nil
+        return notify(src, 'Assigned examination unavailable. No fee charged.', 'error')
     end
     local questions = {}
     local answerKey = {}
