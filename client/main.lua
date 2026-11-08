@@ -95,6 +95,15 @@ local function showMyCredentials()
     lib.showContext('pm_education_my_credentials')
 end
 
+local function choosePaymentMethod(label, amount)
+    if amount == 0 then return 'cash' end
+    local result = lib.inputDialog(label, {{
+        type = 'select', label = ('Payment method - $%d'):format(amount), required = true,
+        options = {{ value = 'cash', label = 'Cash' }, { value = 'bank', label = 'Bank' }}
+    }})
+    return result and result[1] or nil
+end
+
 local function showAdmissions(institutionId)
     local institution = Config.Institutions[institutionId]
     local options = {}
@@ -104,7 +113,8 @@ local function showAdmissions(institutionId)
             title = course.label,
             description = ('Enrollment fee: $%d'):format(course.enrollmentFee or 0),
             onSelect = function()
-                TriggerServerEvent('pm-education:server:enroll', institutionId, selectedId)
+                local method = choosePaymentMethod('Course enrollment', course.enrollmentFee or 0)
+                if method then TriggerServerEvent('pm-education:server:enroll', institutionId, selectedId, method) end
             end
         }
     end
@@ -135,7 +145,8 @@ local function showExaminer(institutionId, examiner)
                 title = course.label,
                 description = ('Exam fee: $%d'):format(course.examFee or 0),
                 onSelect = function()
-                    TriggerServerEvent('pm-education:server:requestExam', institutionId, selectedId)
+                    local method = choosePaymentMethod('Written examination', course.examFee or 0)
+                    if method then TriggerServerEvent('pm-education:server:requestExam', institutionId, selectedId, method) end
                 end
             }
         end
