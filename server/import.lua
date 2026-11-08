@@ -10,6 +10,9 @@ local function validId(s)
 end
 local function importOne(institution, kind, key, payload)
     if not Config.Institutions[institution] or not validId(key) or type(payload)~='table' then return false end
+    if type(payload.label)~='string' or #payload.label==0 or #payload.label>160 then return false end
+    if kind=='exam' and type(payload.questions)~='table' then return false end
+    if kind=='course' and (type(payload.passPercent)~='number' or payload.passPercent<0 or payload.passPercent>100) then return false end
     local encoded=json.encode(payload)
     if not encoded or #encoded>100000 then return false end
     local exists=MySQL.scalar.await(
