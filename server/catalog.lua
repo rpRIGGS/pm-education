@@ -144,8 +144,8 @@ lib.callback.register('pm-education:server:catalogSaveDraft', function(src, inst
     local ok, saved = pcall(MySQL.transaction.await, {
         {query = 'UPDATE pm_education_catalog SET payload_json = ? WHERE id = ? AND institution_id = ? AND status = ?',
          values = {encoded, catalogId, institutionId, 'draft'}},
-        {query = 'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
-         values = {catalogId, institutionId, actor, 'save_draft', 'Updated draft content'}}
+        {query = "INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) SELECT id, ?, ?, 'save_draft', ? FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'draft'",
+         values = {institutionId, actor, 'Updated draft content', catalogId, institutionId}}
     })
     return ok and saved == true
 end)
@@ -197,8 +197,8 @@ lib.callback.register('pm-education:server:catalogRetire', function(src, institu
     local ok, retired = pcall(MySQL.transaction.await, {
         {query = "UPDATE pm_education_catalog SET status = 'retired' WHERE id = ? AND institution_id = ? AND status = 'published'",
          values = {catalogId, institutionId}},
-        {query = 'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
-         values = {catalogId, institutionId, actor, 'retire', 'Retired published revision; historical qualifications unaffected'}}
+        {query = "INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) SELECT id, ?, ?, 'retire', ? FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'retired'",
+         values = {institutionId, actor, 'Retired published revision; historical qualifications unaffected', catalogId, institutionId}}
     })
     return ok and retired == true
 end)
