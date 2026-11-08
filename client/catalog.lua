@@ -5,6 +5,7 @@ end
 
 local openCatalog
 local openRevision
+local editExam
 
 local function editQuestion(question)
     local input = lib.inputDialog('Edit written question', {
@@ -27,7 +28,7 @@ local function editQuestion(question)
     return {question=input[1],answers=answers,correct=input[6]}
 end
 
-local function editExam(institutionId, record)
+editExam=function(institutionId, record)
     local payload = record.payload
     local options = {
         {title='Edit exam title',onSelect=function()
