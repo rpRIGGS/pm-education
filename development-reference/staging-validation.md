@@ -75,3 +75,14 @@ tests with actual resources and database.
   success or retry into multiple draft revisions.
 - Force the catalog integrity SQL query to fail. The audit must report failure,
   not a misleading zero-error result.
+
+## Historical course metadata
+
+Newly published course revisions materialize their written-exam policy,
+practical requirements and credential ID/label into the published payload.
+Changing `config.lua` later must not rewrite those published requirements.
+The audit warns about older published course revisions without these fields;
+review those individually rather than overwriting historical records.
+
+The published credential label is now taken from the student's enrolled course
+revision rather than the newest credential-catalog label.
