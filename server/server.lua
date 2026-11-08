@@ -418,7 +418,7 @@ lib.callback.register('pm-education:server:myPayments', function(src, institutio
     if not citizenid or type(institutionId) ~= 'string' or not Config.Institutions[institutionId] then return {} end
     return MySQL.query.await(
         'SELECT id, payment_type, amount, money_type, status, created_at FROM pm_education_payments WHERE citizenid = ? AND institution_id = ? ORDER BY id DESC LIMIT 50',
-        { citizenid, institutionId }) or {}
+        { citizenid, institutionId })
 end)
 
 
@@ -621,10 +621,12 @@ lib.callback.register('pm-education:server:instructorStudents', function(src, in
  if not instructorAuthorized(src, institutionId) then return {} end
  local rows = MySQL.query.await(
   "SELECT id, citizenid, course_id, status FROM pm_education_enrollments WHERE institution_id = ? ORDER BY id DESC LIMIT 100",
-  {institutionId}) or {}
+  {institutionId})
+ if not rows then error('Instructor student records unavailable') end
  local institution = Config.Institutions[institutionId]
  for _, row in ipairs(rows) do
-  row.courseLabel = institution.courses[row.course_id] and institution.courses[row.course_id].label or row.course_id
+  local assignedCourse = getCourse(institutionId, row.course_id, row.id)
+  row.courseLabel = assignedCourse and assignedCourse.label or row.course_id
  end
  return rows
 end)
@@ -712,7 +714,7 @@ lib.callback.register('pm-education:server:myCredentials', function(src)
     if not citizenid then return {} end
     return MySQL.query.await(
         'SELECT id, institution_id, credential_id, credential_label, status, issued_at, expires_at FROM pm_education_credentials WHERE citizenid = ? ORDER BY id DESC LIMIT 100',
-        { citizenid }) or {}
+        { citizenid })
 end)
 
 -- Explicit cancellation clears an unfinished session. No results are fabricated.
