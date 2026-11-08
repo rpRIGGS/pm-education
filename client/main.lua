@@ -104,17 +104,28 @@ local function choosePaymentMethod(label, amount)
     return result and result[1] or nil
 end
 
+local function loadCourses(institutionId)
+    local courses = lib.callback.await('pm-education:server:availableCourses', false, institutionId)
+    if not courses then
+        notify('Course catalog unavailable. Try again later.', 'error')
+        return nil
+    end
+    return courses
+end
+
 local function showAdmissions(institutionId)
     local institution = Config.Institutions[institutionId]
+    local courses = loadCourses(institutionId)
+    if not courses then return end
     local options = {}
-    for courseId, course in pairs(institution.courses) do
-        local selectedId = courseId
+    for _, course in ipairs(courses) do
+        local selected = course
         options[#options + 1] = {
-            title = course.label,
-            description = ('Enrollment fee: $%d'):format(course.enrollmentFee or 0),
+            title = selected.label,
+            description = ('Enrollment fee: $%d'):format(selected.enrollmentFee),
             onSelect = function()
-                local method = choosePaymentMethod('Course enrollment', course.enrollmentFee or 0)
-                if method then TriggerServerEvent('pm-education:server:enroll', institutionId, selectedId, method) end
+                local method = choosePaymentMethod('Course enrollment', selected.enrollmentFee)
+                if method then TriggerServerEvent('pm-education:server:enroll', institutionId, selected.id, method) end
             end
         }
     end
@@ -135,22 +146,25 @@ local function showAdmissions(institutionId)
 end
 
 local function showExaminer(institutionId, examiner)
-    local institution = Config.Institutions[institutionId]
+    local courses = loadCourses(institutionId)
+    if not courses then return end
+    local offered = {}
+    for _, courseId in ipairs(examiner.courses or {}) do offered[courseId] = true end
     local options = {}
-    for _, courseId in ipairs(examiner.courses or {}) do
-        local course = institution.courses[courseId]
-        if course then
-            local selectedId = courseId
+    for _, course in ipairs(courses) do
+        if offered[course.id] then
+            local selected = course
             options[#options + 1] = {
-                title = course.label,
-                description = ('Exam fee: $%d'):format(course.examFee or 0),
+                title = selected.label,
+                description = ('Exam fee: $%d'):format(selected.examFee),
                 onSelect = function()
-                    local method = choosePaymentMethod('Written examination', course.examFee or 0)
-                    if method then TriggerServerEvent('pm-education:server:requestExam', institutionId, selectedId, method) end
+                    local method = choosePaymentMethod('Written examination', selected.examFee)
+                    if method then TriggerServerEvent('pm-education:server:requestExam', institutionId, selected.id, method) end
                 end
             }
         end
     end
+    if #options == 0 then options[1] = {title='No examinations offered at this location',disabled=true} end
     lib.registerContext({ id = 'pm_education_exams', title = examiner.label or 'Examinations', options = options })
     lib.showContext('pm_education_exams')
 end
