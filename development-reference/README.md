@@ -1,6 +1,6 @@
 # PM Education — Jobs Reference
 
-Source: [PowerMoves PS-MDT planning-reference/jobs.lua](https://github.com/rpRIGGS/PowerMoves-PSMDT/blob/main/planning-reference/jobs.lua)
+Source: [PowerMoves PS-MDT planning-reference/development-jobs.lua](https://github.com/rpRIGGS/PowerMoves-PSMDT/blob/main/planning-reference/development-jobs.lua)
 
 Jobs that could benefit from **PM Education**, grouped by their appropriate oversight agency.
 
