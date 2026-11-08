@@ -51,4 +51,6 @@ Sandy Shores University remains disabled until its real site and roles are appro
 - Current frontend is ox_lib context menus/input dialogs, **not** a bespoke full-screen NUI.
 - POST is not playable until site coordinates, jobs and written material are supplied.
 - GitHub Actions and in-server tests have not been confirmed passing.
+- Instructor-only staff should not see the curriculum editor; credential administrators still require server authorization.
+- New course IDs created in the editor are not automatically offered: the corresponding runtime course must be configured and authorized before publication.
 - Do not treat existing older notes about payment integration as current implementation without comparing the runtime.
