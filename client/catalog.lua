@@ -54,6 +54,18 @@ editExam=function(institutionId, record)
             if updated then payload.questions[index]=updated editExam(institutionId,record) end
         end}
     end
+    options[#options+1]={title='Move a question',onSelect=function()
+        if #payload.questions<2 then return end
+        local input=lib.inputDialog('Reorder questions',{
+            {type='number',label='Question number',required=true,min=1,max=#payload.questions},
+            {type='number',label='New position',required=true,min=1,max=#payload.questions}
+        })
+        if not input then return end
+        local from,to=math.floor(input[1]),math.floor(input[2])
+        local question=table.remove(payload.questions,from)
+        table.insert(payload.questions,to,question)
+        editExam(institutionId,record)
+    end}
     options[#options+1]={title='Remove a question',onSelect=function()
         if #payload.questions == 0 then return end
         local choices={}
