@@ -73,3 +73,57 @@ jobs:
               sys.exit(1)
           print('Manifest Lua paths resolve')
           PY
+
+  sql-migrations:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: testroot
+          MARIADB_DATABASE: pm_education_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MariaDB client
+        run: sudo apt-get update && sudo apt-get install -y mariadb-client
+      - name: Apply initial schema and revision migrations
+        env:
+          MYSQL_PWD: testroot
+        run: |
+          set -euo pipefail
+          for file in \
+            sql/pm_education.sql \
+            sql/pm_education_catalog.sql \
+            sql/pm_education_catalog_attempts_migration.sql \
+            sql/pm_education_enrollment_revision_migration.sql \
+            sql/pm_education_exam_revision_migration.sql; do
+            echo "Applying $file"
+            mariadb -h 127.0.0.1 -u root pm_education_test < "$file"
+          done
+      - name: Validate catalog uniqueness and revision columns
+        env:
+          MYSQL_PWD: testroot
+        run: |
+          set -euo pipefail
+          mariadb -h 127.0.0.1 -u root pm_education_test <<'SQL'
+          INSERT INTO pm_education_catalog (institution_id, content_type, content_key, revision, status, payload_json)
+          VALUES ('post', 'course', 'post_basic', 1, 'published', '{}');
+          INSERT INTO pm_education_catalog (institution_id, content_type, content_key, revision, status, payload_json)
+          VALUES ('post', 'course', 'post_basic', 2, 'draft', '{}');
+          SELECT curriculum_revision_id, exam_revision_id FROM pm_education_enrollments LIMIT 0;
+          SELECT catalog_revision_id FROM pm_education_attempts LIMIT 0;
+          SQL
+          if mariadb -h 127.0.0.1 -u root pm_education_test -e \
+            "INSERT INTO pm_education_catalog (institution_id, content_type, content_key, revision, status, payload_json) VALUES ('post', 'course', 'post_basic', 3, 'published', '{}')"; then
+            echo "ERROR: database accepted two published revisions" >&2
+            exit 1
+          fi
+          mariadb -h 127.0.0.1 -u root pm_education_test -e \
+            "UPDATE pm_education_catalog SET status = 'retired' WHERE revision = 1 AND institution_id = 'post' AND content_key = 'post_basic'; UPDATE pm_education_catalog SET status = 'published' WHERE revision = 2 AND institution_id = 'post' AND content_key = 'post_basic';"
