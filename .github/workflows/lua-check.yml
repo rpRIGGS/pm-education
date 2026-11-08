@@ -49,6 +49,20 @@ jobs:
               sys.exit(1)
           print(f'Checked {len(found)} distinct server event/callback registrations')
           PY
+      - name: Verify client/server callback wiring
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          client = '\n'.join(path.read_text(encoding='utf-8') for path in pathlib.Path('client').glob('*.lua'))
+          server = '\n'.join(path.read_text(encoding='utf-8') for path in pathlib.Path('server').glob('*.lua'))
+          used = set(re.findall(r"lib\.callback\.await\(['\"]pm-education:server:([\w]+)['\"]", client))
+          defined = set(re.findall(r"lib\.callback\.register\(['\"]pm-education:server:([\w]+)['\"]", server))
+          missing = sorted(used - defined)
+          if missing:
+              print('Client callbacks missing server handlers: ' + ', '.join(missing), file=sys.stderr)
+              sys.exit(1)
+          print(f'Validated {len(used)} client callback names against server handlers')
+          PY
       - name: Verify resource entrypoints
         run: |
           test -f fxmanifest.lua
