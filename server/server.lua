@@ -174,7 +174,11 @@ local function paymentRefund(player, paymentId, amount, method, details)
         paymentStatus(paymentId, 'refund_failed', details .. '; refund result uncertain - inspect money logs')
         return false
     end
-    paymentStatus(paymentId, result and 'refunded' or 'refund_failed', details)
+    local recorded = paymentStatus(paymentId, result and 'refunded' or 'refund_failed', details)
+    if not recorded then
+        print(('[pm-education] Refund outcome for payment #%s could not be recorded; manual reconciliation required'):format(paymentId))
+        return false
+    end
     return result
 end
 
