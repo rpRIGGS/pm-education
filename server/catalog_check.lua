@@ -88,7 +88,8 @@ end
 local function audit(institutionId)
     local rows = MySQL.query.await(
         'SELECT id, institution_id, content_type, content_key, revision, status, payload_json, source_kind, source_hash FROM pm_education_catalog WHERE institution_id = ? ORDER BY content_type, content_key, revision',
-        {institutionId}) or {}
+        {institutionId})
+    if not rows then error('Catalog query unavailable; audit cannot report a clean result') end
     local problems = {}
     local active = {}
     local revisions = {}
