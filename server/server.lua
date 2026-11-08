@@ -48,6 +48,52 @@ local function charge(player, amount, reason)
     return player.Functions.RemoveMoney('cash', amount, reason)
 end
 
+
+-- Completion is calculated from SQL results, never client-reported progress.
+local function courseProgress(enrollmentId, course)
+    local writtenRequired = type(course.questions) == 'table' and #course.questions > 0
+    local writtenPassed = false
+    if writtenRequired then
+        local attempt = MySQL.single.await(
+            'SELECT id FROM pm_education_attempts WHERE enrollment_id = ? AND passed = 1 ORDER BY id DESC LIMIT 1',
+            { enrollmentId })
+        writtenPassed = attempt ~= nil
+    end
+    local practical = {}
+    local rows = MySQL.query.await(
+        'SELECT requirement_id, result FROM pm_education_practical_results WHERE enrollment_id = ? ORDER BY id DESC',
+        { enrollmentId }) or {}
+    for _, row in ipairs(rows) do
+        if practical[row.requirement_id] == nil then practical[row.requirement_id] = row.result end
+    end
+    local requiredCount, passedCount = 0, 0
+    for _, requirement in ipairs(course.practicalRequirements or {}) do
+        requiredCount = requiredCount + 1
+        if practical[requirement.id] == 'pass' then passedCount = passedCount + 1 end
+    end
+    local complete = writtenRequired and writtenPassed and passedCount == requiredCount
+    return {
+        writtenRequired = writtenRequired,
+        writtenPassed = writtenPassed,
+        practicalPassed = passedCount,
+        practicalRequired = requiredCount,
+        practical = practical,
+        complete = complete
+    }
+end
+
+local function refreshCompletion(enrollmentId, institutionId, courseId)
+    local course = getCourse(institutionId, courseId)
+    if not course then return end
+    local progress = courseProgress(enrollmentId, course)
+    if progress.complete then
+        MySQL.update.await(
+            "UPDATE pm_education_enrollments SET status = 'completed' WHERE id = ? AND institution_id = ? AND course_id = ? AND status IN ('enrolled','in_progress')",
+            { enrollmentId, institutionId, courseId })
+    end
+    return progress
+end
+
 RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId)
     local src = source
     local player, citizenid = playerFor(src)
@@ -130,10 +176,7 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     MySQL.insert.await(
         'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json) VALUES (?, ?, ?, ?, ?)',
         {session.enrollmentId, citizenid, score, passed and 1 or 0, json.encode(answers)})
-    if passed then
-        MySQL.update.await("UPDATE pm_education_enrollments SET status = 'completed' WHERE id = ? AND citizenid = ? AND status = 'in_progress'",
-            {session.enrollmentId, citizenid})
-    end
+    if passed then refreshCompletion(session.enrollmentId, institutionId, courseId) end
     notify(src, ('Exam %s: %d%%'):format(passed and 'passed' or 'failed', score), passed and 'success' or 'error')
 end)
 
@@ -205,5 +248,19 @@ RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, 
   'INSERT INTO pm_education_practical_results (enrollment_id, citizenid, institution_id, course_id, requirement_id, result, notes, examiner_citizenid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   {enrollmentId, record.citizenid, institutionId, record.course_id, requirementId, result, notes, examiner.PlayerData.citizenid})
  if not ok or not inserted then return notify(src, 'Evaluation could not be saved.', 'error') end
- notify(src, 'Instructor evaluation recorded.', 'success')
+ local progress = refreshCompletion(enrollmentId, institutionId, record.course_id)
+ notify(src, progress and progress.complete and 'Evaluation saved. All course requirements complete.' or 'Instructor evaluation recorded.', 'success')
+end)
+
+lib.callback.register('pm-education:server:courseProgress', function(src, institutionId, enrollmentId)
+    if not instructorAuthorized(src, institutionId) or type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 then return nil end
+    local record = MySQL.single.await(
+        'SELECT course_id, status FROM pm_education_enrollments WHERE id = ? AND institution_id = ?',
+        { enrollmentId, institutionId })
+    if not record then return nil end
+    local course = getCourse(institutionId, record.course_id)
+    if not course then return nil end
+    local progress = courseProgress(enrollmentId, course)
+    progress.enrollmentStatus = record.status
+    return progress
 end)
