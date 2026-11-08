@@ -1,5 +1,10 @@
 Config = {}
 Config.Debug = false
+Config.Payment = {
+    moneyType = 'cash', -- 'cash' or 'bank'; society deposits remain disabled until integration approved
+    societyDepositsEnabled = false,
+    societyAdapter = 'none' -- PLACEHOLDER: configure qb-banking integration later
+}
 -- Deployment switches. Keep false until actual locations and approved staff jobs are configured.
 Config.EnableDemoUniversity = false
 Config.EnablePOST = true
