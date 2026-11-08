@@ -363,7 +363,7 @@ lib.callback.register('pm-education:server:setCredentialStatus', function(src, i
     local actor = QBCore.Functions.GetPlayer(src)
     if not actor then return false, 'Instructor not found' end
     -- A transaction makes status and audit inseparable. No silent, unaudited changes.
-    local ok, result = pcall(function()
+    local ok, result, message = pcall(function()
         local record = MySQL.single.await(
             'SELECT id, citizenid, status FROM pm_education_credentials WHERE id = ? AND institution_id = ?',
             { credentialId, institutionId })
@@ -385,5 +385,5 @@ lib.callback.register('pm-education:server:setCredentialStatus', function(src, i
         return true, 'Credential status updated and audited'
     end)
     if not ok then return false, 'Credential update failed' end
-    return result
+    return result, message
 end)
