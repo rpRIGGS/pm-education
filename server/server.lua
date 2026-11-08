@@ -289,6 +289,7 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local session = activeExams[src]
     if not session or session.pending or session.submitting or session.institutionId ~= institutionId or session.courseId ~= courseId then return end
     session.submitting = true
+    activeExams[src] = nil -- consumed once, before any yielding validation or insert
     local _, citizenid = playerFor(src)
     if citizenid ~= session.citizenid or os.time() - session.started > 1800 then return end
     local course = getCourse(institutionId, courseId)
@@ -313,7 +314,6 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
         return notify(src, 'Exam results could not be saved. Contact an administrator.', 'error')
     end
     if passed then refreshCompletion(session.enrollmentId, institutionId, courseId) end
-    activeExams[src] = nil
     notify(src, ('Exam %s: %d%%'):format(passed and 'passed' or 'failed', score), passed and 'success' or 'error')
 end)
 
