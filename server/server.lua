@@ -178,6 +178,14 @@ local function paymentStart(player, citizenid, institutionId, courseId, enrollme
     if type(amount) ~= 'number' or amount < 0 or amount % 1 ~= 0 then return nil, 'Invalid fee configuration' end
     local account = societyAccount(institutionId)
     if not account then return nil, 'Institution society account unavailable in qb-banking' end
+    -- Pending/uncertain debits must be reconciled before charging this student
+    -- again for the same course and payment purpose.
+    local unresolved = MySQL.scalar.await(
+        "SELECT id FROM pm_education_payments WHERE citizenid = ? AND institution_id = ? AND course_id = ? AND payment_type = ? AND status IN ('pending','refund_failed') ORDER BY id DESC LIMIT 1",
+        {citizenid, institutionId, courseId, paymentType})
+    if unresolved then
+        return nil, ('Payment #%s requires administrator reconciliation before retrying'):format(unresolved)
+    end
     local ok, paymentId = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_payments (citizenid, institution_id, course_id, enrollment_id, payment_type, amount, money_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
         { citizenid, institutionId, courseId, enrollmentId, paymentType, amount, method })
