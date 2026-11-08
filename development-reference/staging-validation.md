@@ -97,3 +97,18 @@ revision rather than the newest credential-catalog label.
   curriculum even if a later credential revision changes its display label.
 - Confirm catalog audit reports credentials without a matching enrollment
   and duplicated enrollment/credential awards.
+
+## Payment reconciliation gate
+
+Run `pm_education_payment_review <institution_id>` in the **server console**.
+This read-only report lists up to 100 pending, charged or refund-failed records.
+For each entry compare the QBCore player debit, qb-banking society credit and
+payment ledger before deciding whether to correct the status or reimburse.
+Do not automatically retry society credits or refunds when their outcomes are
+uncertain. New charges for the same student/course/payment type are blocked
+while unresolved records remain.
+
+Legacy enrollments with NULL course/exam revision IDs use the legacy configured
+course and question bank. They must **not** inherit later published catalog
+revisions. Legacy configuration is not a historical snapshot; server config
+changes can still affect these old enrollments.
