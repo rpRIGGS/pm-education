@@ -260,8 +260,10 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local src = source
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
-    if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId)
-        or #getQuestions(institutionId, courseId) == 0 then return end
+    if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId) then return end
+    if #getQuestions(institutionId, courseId) == 0 then
+        return notify(src, 'Written examination questions are not configured yet.', 'error')
+    end
     if activeExams[src] and (activeExams[src].pending or os.time() - activeExams[src].started <= 1800) then
         return notify(src, 'An exam is already active or starting.', 'error')
     end
