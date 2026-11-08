@@ -66,7 +66,7 @@ local function showEnrollments(institutionId)
                     menu = 'pm_education_my_enrollments',
                     options = {
                         { title = 'Enrollment status', description = progress.enrollmentStatus, disabled = true },
-                        { title = 'Written exam', description = progress.writtenRequired and (progress.writtenPassed and 'Passed' or 'Not passed') or 'Not configured', disabled = true },
+                        { title = 'Written exam', description = progress.writtenRequired and (progress.writtenPassed and 'Passed' or 'Not passed') or 'Not required', disabled = true },
                         { title = 'Practical evaluations', description = ('%d / %d passed'):format(progress.practicalPassed, progress.practicalRequired), disabled = true },
                         { title = 'Course requirements', description = progress.complete and 'Satisfied' or 'Outstanding', disabled = true }
                     }
@@ -299,7 +299,7 @@ local function openInstructorStudent(institutionId, student)
   if not latest[entry.requirement_id] then latest[entry.requirement_id] = entry.result end
  end
  local options = {
-  { title = 'Written examination', description = progress.writtenRequired and (progress.writtenPassed and 'Passed' or 'Not passed') or 'Question bank not configured', disabled = true },
+  { title = 'Written examination', description = progress.writtenRequired and (progress.writtenPassed and 'Passed' or 'Not passed') or 'Not required', disabled = true },
   { title = 'Practical progress', description = ('%d of %d passed'):format(progress.practicalPassed, progress.practicalRequired), disabled = true },
   { title = 'Completion', description = progress.complete and 'All requirements satisfied' or 'Requirements outstanding', disabled = true }
  }
