@@ -20,6 +20,33 @@ local function checkPayload(row, problems)
             payload.passPercent > 100 then
             report(problems, 'ERROR', 'INVALID_PASS_PERCENT', context)
         end
+        if payload.requireWritten ~= nil and type(payload.requireWritten) ~= 'boolean' then
+            report(problems, 'ERROR', 'INVALID_WRITTEN_REQUIREMENT', context)
+        end
+        if payload.credentialId ~= nil and
+            (type(payload.credentialId) ~= 'string' or #payload.credentialId < 1 or
+             #payload.credentialId > 80 or not payload.credentialId:match('^[%w_%-]+$')) then
+            report(problems, 'ERROR', 'INVALID_CREDENTIAL_LINK', context)
+        end
+        if payload.practicalRequirements ~= nil then
+            if type(payload.practicalRequirements) ~= 'table' or #payload.practicalRequirements > 50 then
+                report(problems, 'ERROR', 'INVALID_PRACTICAL_LIST', context)
+            else
+                local seen = {}
+                for index, requirement in ipairs(payload.practicalRequirements) do
+                    if type(requirement) ~= 'table' or type(requirement.id) ~= 'string' or
+                        #requirement.id < 1 or #requirement.id > 80 or
+                        not requirement.id:match('^[%w_%-]+$') or seen[requirement.id] or
+                        type(requirement.label) ~= 'string' or #requirement.label < 1 or
+                        #requirement.label > 160 then
+                        report(problems, 'ERROR', 'INVALID_PRACTICAL_REQUIREMENT',
+                            context .. ' item ' .. index)
+                    else
+                        seen[requirement.id] = true
+                    end
+                end
+            end
+        end
         if not ((Config.Institutions[row.institution_id] or {}).courses or {})[row.content_key] then
             report(problems, 'WARN', 'UNCONFIGURED_COURSE', context)
         end
