@@ -71,7 +71,7 @@ local function courseProgress(enrollmentId, course)
         requiredCount = requiredCount + 1
         if practical[requirement.id] == 'pass' then passedCount = passedCount + 1 end
     end
-    local complete = writtenRequired and writtenPassed and passedCount == requiredCount
+    local complete = (not course.requireWritten or writtenRequired) and (not writtenRequired or writtenPassed) and passedCount == requiredCount
     return {
         writtenRequired = writtenRequired,
         writtenPassed = writtenPassed,
@@ -306,4 +306,15 @@ lib.callback.register('pm-education:server:myCredentials', function(src)
     return MySQL.query.await(
         'SELECT id, institution_id, credential_id, credential_label, status, issued_at, expires_at FROM pm_education_credentials WHERE citizenid = ? ORDER BY id DESC LIMIT 100',
         { citizenid }) or {}
+end)
+
+-- Explicit cancellation clears an unfinished session. No results are fabricated.
+RegisterNetEvent('pm-education:server:cancelExam', function(institutionId, courseId)
+    local src = source
+    local session = activeExams[src]
+    if not session or session.institutionId ~= institutionId or session.courseId ~= courseId then return end
+    local _, citizenid = playerFor(src)
+    if citizenid ~= session.citizenid then return end
+    activeExams[src] = nil
+    notify(src, 'Exam cancelled. Any charged exam fee is not automatically refunded.', 'inform')
 end)
