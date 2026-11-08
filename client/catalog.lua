@@ -18,8 +18,13 @@ local function editQuestion(question)
     })
     if not input then return nil end
     local answers = {input[2],input[3]}
-    for i=4,5 do
-        if input[i] and input[i] ~= '' then answers[#answers+1] = input[i] end
+    if input[4] and input[4] ~= '' then answers[#answers+1] = input[4] end
+    if input[5] and input[5] ~= '' then
+        if not input[4] or input[4] == '' then
+            lib.notify({description='Fill answer C before answer D.',type='error'})
+            return nil
+        end
+        answers[#answers+1] = input[5]
     end
     if input[6] > #answers then
         lib.notify({description='Correct answer must refer to a filled answer.',type='error'})
