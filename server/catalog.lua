@@ -171,7 +171,15 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
         if not base then return false end
         -- Materialize optional inherited requirements before publication so
         -- later config edits cannot silently change enrolled students' rules.
-        if payload.requireWritten == nil then payload.requireWritten = base.requireWritten == true end
+        if payload.requireWritten == nil then
+            local legacyQuestions = EducationQuestions and EducationQuestions[institutionId] and
+                EducationQuestions[institutionId][row.content_key] or {}
+            local publishedExam = MySQL.scalar.await(
+                "SELECT id FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'exam' AND content_key = ? AND status = 'published' LIMIT 1",
+                {institutionId, row.content_key})
+            payload.requireWritten = base.requireWritten == true or
+                (base.requireWritten == nil and (publishedExam ~= nil or #legacyQuestions > 0))
+        end
         if payload.practicalRequirements == nil then
             payload.practicalRequirements = base.practicalRequirements or {}
         end
