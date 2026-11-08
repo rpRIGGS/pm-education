@@ -133,11 +133,18 @@ local function showAdmissions(institutionId)
         local selected = course
         options[#options + 1] = {
             title = selected.label,
-            description = ('Enrollment fee: $%d'):format(selected.enrollmentFee),
+            description = ('Enrollment fee: $%d'):format(selected.enrollmentFee or 0),
             onSelect = function()
                 local method = choosePaymentMethod('Course enrollment', selected.enrollmentFee)
                 if method then TriggerServerEvent('pm-education:server:enroll', institutionId, selected.id, method) end
             end
+        }
+    end
+    if #courses == 0 then
+        options[#options + 1] = {
+            title = 'No courses currently available',
+            description = 'The institution has not published or configured offerings yet.',
+            disabled = true
         }
     end
     options[#options + 1] = {
