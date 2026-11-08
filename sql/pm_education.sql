@@ -56,3 +56,18 @@ CREATE TABLE IF NOT EXISTS pm_education_credentials (
  UNIQUE KEY uq_enrollment_credential (enrollment_id, credential_id),
  KEY idx_citizen_credential (citizenid, credential_id, status)
 );
+
+-- Append-only history of credential status decisions.
+CREATE TABLE IF NOT EXISTS pm_education_credential_audit (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ credential_id BIGINT UNSIGNED NOT NULL,
+ institution_id VARCHAR(80) NOT NULL,
+ subject_citizenid VARCHAR(64) NOT NULL,
+ actor_citizenid VARCHAR(64) NOT NULL,
+ previous_status VARCHAR(24) NOT NULL,
+ new_status VARCHAR(24) NOT NULL,
+ reason VARCHAR(1000) NOT NULL,
+ recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(id),
+ KEY idx_credential_history (credential_id, id)
+);
