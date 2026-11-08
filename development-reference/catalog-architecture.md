@@ -1,46 +1,30 @@
-# Versioned institutional content — implementation notes
+# PM Education — versioned curriculum catalog
 
-## Current implementation
-- `sql/pm_education_catalog.sql` creates revisioned course/exam/credential payload storage and an audit table.
-- `development/institutions/*.lua` are authoring templates. They are **not automatically imported**, and they do not replace the currently configured courses or server-side questions.
-- `server/catalog.lua` provides institution-scoped server callbacks to list and read revisions and create new drafts. They require the institution to be enabled, the authorized `credentialAdminJobs` job/grade, and proximity to an actual configured management desk. POST deliberately has no approved administrator job or desk yet, so its authoring access remains locked.
-- Draft creation does **not** publish or activate tests. The current exam runtime continues using the existing server question bank.
-- Import reconciliation, draft editing, publishing, immutable snapshot binding, audit writes, export, and ox_lib editing menus are **next implementation tasks**. Do not present the editor as production-ready.
+## Verified repository inventory (code review only; no FiveM runtime test)
+- `config.lua`: institution IDs, jobs, management desks, course defaults and fees. POST permissions and desk coordinates remain unconfigured; Sandy Shores University is disabled.
+- `server/questions.lua`: legacy server-only question bank; POST remains empty.
+- `development/institutions/post.lua` and `sandy_university.lua`: server-only development templates. No unapproved exam questions seeded.
+- `sql/pm_education.sql`: enrollment, exam attempts, practical evaluations, credentials, payments and audit records.
+- `sql/pm_education_catalog.sql`: course/exam/credential revision catalog and audit.
+- `sql/pm_education_catalog_attempts_migration.sql`: nullable attempt-to-exam-revision link.
+- `server/catalog.lua`: administrator-scoped list/read/create/save/publish/retire/history callbacks.
+- `server/import.lua`: console-only development-template import. Changed templates create new review drafts; existing content is not overwritten.
+- `client/catalog.lua`: ox_lib draft editor for questions, answer choices, course titles/scores, credential titles, and publishing.
+- `client/main.lua`: qb-target management desk entry point.
+- `server/server.lua`: existing enrollment/payment/credential engine, now selecting published exam questions and saving the selected revision ID.
 
-## Content lifecycle contract
-1. Development-authored records have stable institution/type/key identifiers.
-2. First import creates drafts; subsequent imports compare source content and propose new drafts rather than overwriting live edits.
-3. An authorized institution administrator reviews, edits and explicitly publishes a revision.
-4. New attempts use the newly published revision; in-progress attempts retain their question/answer snapshot.
-5. Historical passing attempts and credentials remain valid under their original revision unless separately suspended, revoked or expired by authorized policy action.
-6. Published records must never be edited in place. All modifications are new revisions, with actor and timestamp audit entries.
-7. Exports produce portable development source files for review and GitHub commits; no in-game process directly edits resource Lua files.
+## Setup
+Apply `sql/pm_education.sql`, then `sql/pm_education_catalog.sql`, then `sql/pm_education_catalog_attempts_migration.sql` **once** on an existing database (inspect existing schema before rerunning ALTER). Start `pm-education` after QBCore, oxmysql, ox_lib, qb-target, qb-banking. Run `pm_education_import` in the server console to stage development templates as drafts. Publication is always manual.
 
-## Before live testing
-Apply both SQL files. Confirm the real job/grade and management-desk coordinates for each institution. Test with an unauthorized job, a lower grade, and another institution's leadership. Never seed unapproved POST questions or silently activate demonstration university courses.
+## Version behavior
+Published content is not editable in place. Staff create replacement drafts, edit, retire the old published revision, and publish the new revision. In-flight exam sessions retain their captured questions and answer key. New attempts store their catalog revision ID; historical attempts have NULL and remain valid. Credential status changes are separate from test revisions. Development imports do not grant licenses, ranks, jobs or permits.
 
-## Current catalog callback API
-All calls are restricted to the configured institution administrator job/grade and management-desk proximity.
+## Critical outstanding work
+1. FiveM/oxmysql runtime testing, including actual SQL migrations and management desk permissions.
+2. Atomic revision switching and stronger database concurrency/transaction controls for catalog changes and audit writes.
+3. Runtime integration for published course and credential definitions (currently only published exam question content is consumed).
+4. Export of in-game content back to reviewable development files, and conflict-safe import previews.
+5. Better administrator UX (reorder questions, richer credential requirements, unsaved-change warnings) and full end-to-end tests.
+6. Replace provisional POST curriculum only after approval; never invent job grades, coordinates, or policy questions.
 
-- `catalogList(institutionId)` — list the institution's revisions.
-- `catalogRead(institutionId, catalogId)` — read the revision payload.
-- `catalogCreateDraft(institutionId, kind, key, payload)` — create an unpublished revision.
-- `catalogSaveDraft(institutionId, catalogId, payload)` — edit only drafts.
-- `catalogPublish(institutionId, catalogId)` — publish a validated draft when no active published revision exists.
-- `catalogRetire(institutionId, catalogId)` — retire a published revision.
-- `catalogHistory(institutionId, catalogId)` — inspect audit events.
-
-**Important:** This is groundwork, not a finished editor. The Lua/ox_lib administration interface, controlled imports, immutable exam-attempt revision links, atomic publication switching, stronger database transaction boundaries, and deployment validation remain outstanding. The legacy exam delivery is still active and does not yet read the new catalog.
-
-## Live exam delivery integration
-Run SQL in order: `pm_education.sql`, `pm_education_catalog.sql`, then `pm_education_catalog_attempts_migration.sql`. New exam sessions select the latest published exam revision for their institution and course ID. The selected questions, answer key, passing threshold, and catalog revision ID are captured at start. Attempts store `catalog_revision_id`; older attempts remain NULL and retain their previous status. When no published catalog exam exists, the existing server-side question bank remains the fallback. Catalog database errors fail closed instead of silently switching question sources.
-
-A published exam's `content_key` must match an existing configured course ID to be offered at that course's examiner. The course's current configured passing percentage remains authoritative until course-catalog integration is completed. New course and certification drafts are editable catalog content but are not yet automatically enrolled or issued.
-
-## Development template import (implemented)
-After applying the three SQL files, run `pm_education_import` **from the FiveM server console**, not as a player. The importer reads the allowlisted `development/institutions/*.lua` templates, creates revision-1 drafts for content keys that have no catalog records, and leaves every existing revision and in-game edit unchanged. It does not auto-publish. Subsequent changed templates require a deliberate new revision workflow; this first-import command does not overwrite them. Templates must be included in `fxmanifest.lua` and the importer allowlist.
-
-## In-game editor (implemented foundation)
-From an existing configured qb-target institution management desk, choose Institution Curriculum Administration. Authorized leadership can create course, examination, and credential drafts; edit exam title/questions/answer choices/correct answer; remove questions; save drafts; publish; retire; inspect audit history. All catalog callbacks independently enforce job/grade and desk proximity. Publication of an exam requires an existing configured course with a matching key.
-
-**Outstanding:** runtime FiveM test, atomic revision switching, course/credential runtime integration, developer export and conflict-safe synchronization, and robust database transaction boundaries.
+**Do not mistake committed code for production-tested functionality.** The earlier setup guide contains historical development notes that have been superseded; use this inventory and the actual source files for the current catalog state.
