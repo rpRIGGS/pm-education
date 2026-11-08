@@ -61,3 +61,10 @@ Sandy Shores University remains disabled until its real site and roles are appro
 - Student payment, credential, and instructor practical-history database failures must show error feedback, not empty-state messages.
 - A course with `requireWritten=false` displays "Not required" rather than "Question bank not configured".
 - Final authorization and data-consistency verification still requires a live QBCore/ox_lib/qb-target staging environment.
+
+## Credential administration role separation
+- `staffJobs` authorizes instructor practical assessments and instructor student records.
+- `credentialAdminJobs` independently authorizes curriculum and credential administration.
+- Both roles require proximity to a configured `management` desk. An administrator is **not** automatically an instructor.
+- An administrator-only user sees a management menu for curriculum and credential administration; an instructor-only user sees assessments, but not credential status controls.
+- Test four combinations in FiveM: instructor only, admin only, both, neither. Also test leaving the desk, changing grade/job, and disabled institutions. Client visibility is convenience only; the server must deny unauthorized requests.
