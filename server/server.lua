@@ -245,28 +245,39 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local course = getCourse(institutionId, courseId)
     if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId)
         or #getQuestions(institutionId, courseId) == 0 then return end
-    if activeExams[src] and os.time() - activeExams[src].started <= 1800 then
-        return notify(src, 'An exam is already active.', 'error')
+    if activeExams[src] and (activeExams[src].pending or os.time() - activeExams[src].started <= 1800) then
+        return notify(src, 'An exam is already active or starting.', 'error')
     end
-    activeExams[src] = nil
-    local record = enrollment(citizenid, institutionId, courseId)
-    if not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress') then
-        return notify(src, 'You must have an active enrollment.', 'error')
+    -- Lock before any yielding database or payment call; rapid repeated events cannot double-charge.
+    activeExams[src] = { pending = true, started = os.time() }
+    local ok, record = pcall(enrollment, citizenid, institutionId, courseId)
+    if not ok or not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress') then
+        activeExams[src] = nil
+        return notify(src, ok and 'You must have an active enrollment.' or 'Enrollment database unavailable.', 'error')
     end
     local questions = {}
     for index, question in ipairs(getQuestions(institutionId, courseId)) do
         questions[index] = { question = question.question, answers = question.answers }
     end
     local fee = course.examFee or 0
-    local paymentId, paymentError = paymentStart(player, citizenid, institutionId, courseId, record.id, 'exam', fee, paymentMethod)
-    if not paymentId then return notify(src, paymentError, 'error') end
-    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId }
-    local updated = pcall(MySQL.update.await, "UPDATE pm_education_enrollments SET status = 'in_progress' WHERE id = ? AND status = 'enrolled'", {record.id})
-    if not updated then
+    local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, record.id, 'exam', fee, paymentMethod)
+    if not paid or not paymentId then
         activeExams[src] = nil
-        local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam startup failed')
-        return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam startup failed. Refund requires administrator review.', 'error')
+        return notify(src, paid and paymentError or 'Payment failed; review ledger before retrying.', 'error')
     end
+    local updated, affected = pcall(MySQL.update.await,
+        "UPDATE pm_education_enrollments SET status = 'in_progress' WHERE id = ? AND citizenid = ? AND status IN ('enrolled','in_progress')",
+        { record.id, citizenid })
+    if not updated or not affected or affected < 1 then
+        -- MySQL may return zero affected rows for an already in-progress enrollment.
+        local verifyOk, verified = pcall(enrollment, citizenid, institutionId, courseId)
+        if not verifyOk or not verified or verified.id ~= record.id or verified.status ~= 'in_progress' then
+            activeExams[src] = nil
+            local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam enrollment validation failed')
+            return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam failed. Refund needs administrator review.', 'error')
+        end
+    end
+    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId }
     paymentComplete(paymentId, record.id, institutionId, fee)
     TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, questions)
 end)
