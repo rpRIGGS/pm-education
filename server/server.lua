@@ -540,7 +540,7 @@ RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, 
   "SELECT citizenid, course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND status IN ('enrolled','in_progress')",
   {enrollmentId, institutionId})
  if not record then return notify(src, 'Student is not actively enrolled.', 'error') end
- local course = Config.Institutions[institutionId].courses[record.course_id]
+ local course = getCourse(institutionId, record.course_id, enrollmentId)
  local valid = false
  for _, requirement in ipairs(course and course.practicalRequirements or {}) do
   if requirement.id == requirementId then valid = true break end
@@ -1143,7 +1143,7 @@ RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, 
   "SELECT citizenid, course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND status IN ('enrolled','in_progress')",
   {enrollmentId, institutionId})
  if not record then return notify(src, 'Student is not actively enrolled.', 'error') end
- local course = Config.Institutions[institutionId].courses[record.course_id]
+ local course = getCourse(institutionId, record.course_id, enrollmentId)
  local valid = false
  for _, requirement in ipairs(course and course.practicalRequirements or {}) do
   if requirement.id == requirementId then valid = true break end
@@ -1746,7 +1746,7 @@ RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, 
   "SELECT citizenid, course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND status IN ('enrolled','in_progress')",
   {enrollmentId, institutionId})
  if not record then return notify(src, 'Student is not actively enrolled.', 'error') end
- local course = Config.Institutions[institutionId].courses[record.course_id]
+ local course = getCourse(institutionId, record.course_id, enrollmentId)
  local valid = false
  for _, requirement in ipairs(course and course.practicalRequirements or {}) do
   if requirement.id == requirementId then valid = true break end
