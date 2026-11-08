@@ -200,13 +200,18 @@ local function manageStudentCredentials(institutionId, student)
                     { title = 'Current status: ' .. selected.status, disabled = true },
                     {
                         title = 'Change credential status',
+                        disabled = selected.status == 'revoked' or selected.status == 'expired',
                         onSelect = function()
                             local input = lib.inputDialog('Credential administration', {
-                                { type = 'select', label = 'New status', required = true, options = {
-                                    { value = 'active', label = 'Active (restore suspension)' },
-                                    { value = 'suspended', label = 'Suspend' },
-                                    { value = 'revoked', label = 'Revoke' }
-                                }},
+                                { type = 'select', label = 'New status', required = true, options =
+                                    selected.status == 'active' and {
+                                        { value = 'suspended', label = 'Suspend' },
+                                        { value = 'revoked', label = 'Revoke' }
+                                    } or selected.status == 'suspended' and {
+                                        { value = 'active', label = 'Restore suspension' },
+                                        { value = 'revoked', label = 'Revoke' }
+                                    } or {}
+                                },
                                 { type = 'textarea', label = 'Reason (10-1000 characters)', required = true, min = 10, max = 1000 }
                             })
                             if not input then return end
