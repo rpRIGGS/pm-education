@@ -256,8 +256,10 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         return notify(src, ok and 'You must have an active enrollment.' or 'Enrollment database unavailable.', 'error')
     end
     local questions = {}
+    local answerKey = {}
     for index, question in ipairs(getQuestions(institutionId, courseId)) do
         questions[index] = { question = question.question, answers = question.answers }
+        answerKey[index] = { correct = question.correct, count = #question.answers }
     end
     local fee = course.examFee or 0
     local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, record.id, 'exam', fee, paymentMethod)
@@ -277,7 +279,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
             return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam failed. Refund needs administrator review.', 'error')
         end
     end
-    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId }
+    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey }
     paymentComplete(paymentId, record.id, institutionId, fee)
     TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, questions)
 end)
@@ -290,19 +292,19 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local _, citizenid = playerFor(src)
     if citizenid ~= session.citizenid or os.time() - session.started > 1800 then return end
     local course = getCourse(institutionId, courseId)
-    local questionBank = getQuestions(institutionId, courseId)
-    if not course or type(answers) ~= 'table' or #questionBank == 0 or #answers ~= #questionBank then return end
+    local answerKey = session.answerKey or {}
+    if not course or type(answers) ~= 'table' or #answerKey == 0 or #answers ~= #answerKey then return end
     local enrolledOk, current = pcall(enrollment, citizenid, institutionId, courseId)
     if not enrolledOk or not current or current.id ~= session.enrollmentId or
         (current.status ~= 'enrolled' and current.status ~= 'in_progress') then
         return notify(src, 'Exam enrollment is no longer active.', 'error')
     end
     local correct = 0
-    for index, question in ipairs(getQuestions(institutionId, courseId)) do
-        if type(answers[index]) ~= 'number' or answers[index] % 1 ~= 0 or answers[index] < 1 or answers[index] > #question.answers then return end
+    for index, question in ipairs(answerKey) do
+        if type(answers[index]) ~= 'number' or answers[index] % 1 ~= 0 or answers[index] < 1 or answers[index] > question.count then return end
         if answers[index] == question.correct then correct = correct + 1 end
     end
-    local score = math.floor(correct * 100 / #questionBank)
+    local score = math.floor(correct * 100 / #answerKey)
     local passed = score >= (course.passPercent or 70)
     local ok, saved = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json) VALUES (?, ?, ?, ?, ?)',
