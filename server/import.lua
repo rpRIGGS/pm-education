@@ -15,17 +15,23 @@ local function importOne(institution, kind, key, payload)
     if kind=='course' and (type(payload.passPercent)~='number' or payload.passPercent<0 or payload.passPercent>100) then return false end
     local encoded=json.encode(payload)
     if not encoded or #encoded>100000 then return false end
-    local exists=MySQL.scalar.await(
-        'SELECT id FROM pm_education_catalog WHERE institution_id=? AND content_type=? AND content_key=? LIMIT 1',
+    local latest=MySQL.single.await(
+        'SELECT id, revision, payload_json FROM pm_education_catalog WHERE institution_id=? AND content_type=? AND content_key=? ORDER BY revision DESC LIMIT 1',
         {institution,kind,key})
-    if exists then return false end
+    if latest then
+        -- Re-importing an unchanged template never produces duplicate revisions.
+        local decoded, prior=pcall(json.decode,latest.payload_json)
+        if decoded and json.encode(prior)==encoded then return false end
+        -- Changed templates become new reviewable drafts, never overwrite live content.
+    end
+    local revision=latest and (tonumber(latest.revision)+1) or 1
     local id=MySQL.insert.await(
-        "INSERT INTO pm_education_catalog (institution_id,content_type,content_key,revision,status,payload_json,source_kind,created_by) VALUES (?,?,?,1,'draft',?,'development','system')",
-        {institution,kind,key,encoded})
+        "INSERT INTO pm_education_catalog (institution_id,content_type,content_key,revision,status,payload_json,source_kind,created_by) VALUES (?,?,?,?,'draft',?,'development','system')",
+        {institution,kind,key,revision,encoded})
     if not id then return false end
     MySQL.insert.await(
         'INSERT INTO pm_education_catalog_audit (catalog_id,institution_id,actor_citizenid,action,notes) VALUES (?,?,?,?,?)',
-        {id,institution,'system','import','Initial development template'})
+        {id,institution,'system','import',latest and 'Updated development template; review required' or 'Initial development template'})
     return true
 end
 RegisterCommand('pm_education_import',function(source)
