@@ -1,0 +1,38 @@
+name: Lua syntax and resource structure
+
+on:
+  push:
+    paths:
+      - '**/*.lua'
+      - 'fxmanifest.lua'
+      - '.github/workflows/lua-check.yml'
+  pull_request:
+    paths:
+      - '**/*.lua'
+      - 'fxmanifest.lua'
+      - '.github/workflows/lua-check.yml'
+
+jobs:
+  lua-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.4 compiler
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - name: Compile-check every Lua source
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.lua' -not -path './.git/*' -print0 |
+            while IFS= read -r -d '' file; do
+              echo "Checking $file"
+              luac5.4 -p "$file"
+            done
+      - name: Verify resource entrypoints
+        run: |
+          test -f fxmanifest.lua
+          test -f server/server.lua
+          test -f server/catalog.lua
+          test -f client/main.lua
+          test -f client/catalog.lua
+          test -f sql/pm_education_enrollment_revision_migration.sql
+          test -f sql/pm_education_exam_revision_migration.sql
