@@ -228,7 +228,8 @@ CreateThread(function()
 end)
 
 local function manageStudentCredentials(institutionId, student)
-    local credentials = lib.callback.await('pm-education:server:adminCredentials', false, institutionId, student.id) or {}
+    local credentials = lib.callback.await('pm-education:server:adminCredentials', false, institutionId, student.id)
+    if not credentials then return notify('Credential administration records unavailable.', 'error') end
     local options = {}
     for _, credential in ipairs(credentials) do
         local selected = credential
@@ -236,7 +237,8 @@ local function manageStudentCredentials(institutionId, student)
             title = selected.credential_label,
             description = ('Credential #%s | %s'):format(selected.id, selected.status),
             onSelect = function()
-                local history = lib.callback.await('pm-education:server:credentialHistory', false, institutionId, selected.id) or {}
+                local history = lib.callback.await('pm-education:server:credentialHistory', false, institutionId, selected.id)
+                if not history then return notify('Credential audit history unavailable.', 'error') end
                 local entries = {
                     { title = 'Current status: ' .. selected.status, disabled = true },
                     {
