@@ -115,12 +115,18 @@ end)
 local function openInstructorStudent(institutionId, student)
  local course = Config.Institutions[institutionId].courses[student.course_id]
  if not course then return end
+ local progress = lib.callback.await('pm-education:server:courseProgress', false, institutionId, student.id)
+ if not progress then return notify('Unable to load course progress.', 'error') end
  local history = lib.callback.await('pm-education:server:instructorResults', false, institutionId, student.id) or {}
  local latest = {}
  for _, entry in ipairs(history) do
   if not latest[entry.requirement_id] then latest[entry.requirement_id] = entry.result end
  end
- local options = {}
+ local options = {
+  { title = 'Written examination', description = progress.writtenRequired and (progress.writtenPassed and 'Passed' or 'Not passed') or 'Question bank not configured', disabled = true },
+  { title = 'Practical progress', description = ('%d of %d passed'):format(progress.practicalPassed, progress.practicalRequired), disabled = true },
+  { title = 'Completion', description = progress.complete and 'All requirements satisfied' or 'Requirements outstanding', disabled = true }
+ }
  for _, requirement in ipairs(course.practicalRequirements or {}) do
   local selected = requirement
   options[#options + 1] = {
