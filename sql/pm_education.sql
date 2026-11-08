@@ -71,3 +71,22 @@ CREATE TABLE IF NOT EXISTS pm_education_credential_audit (
  PRIMARY KEY(id),
  KEY idx_credential_history (credential_id, id)
 );
+
+-- Durable payment attempts and reconciliation queue. Do not delete failed refunds.
+CREATE TABLE IF NOT EXISTS pm_education_payments (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ citizenid VARCHAR(64) NOT NULL,
+ institution_id VARCHAR(80) NOT NULL,
+ course_id VARCHAR(80) NOT NULL,
+ enrollment_id BIGINT UNSIGNED NULL,
+ payment_type ENUM('enrollment','exam') NOT NULL,
+ money_type VARCHAR(16) NOT NULL DEFAULT 'cash',
+ amount INT UNSIGNED NOT NULL,
+ status ENUM('pending','charged','completed','refunded','refund_failed','failed') NOT NULL DEFAULT 'pending',
+ details VARCHAR(255) NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY(id),
+ KEY idx_payment_student (citizenid, created_at),
+ KEY idx_payment_reconcile (status, updated_at)
+);
