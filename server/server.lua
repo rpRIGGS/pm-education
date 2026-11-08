@@ -76,7 +76,8 @@ local function courseProgress(enrollmentId, course, institutionId, courseId)
         requiredCount = requiredCount + 1
         if practical[requirement.id] == 'pass' then passedCount = passedCount + 1 end
     end
-    local complete = (not course.requireWritten or writtenRequired) and (not writtenRequired or writtenPassed) and passedCount == requiredCount
+    local hasRequirements = course.requireWritten or writtenRequired or requiredCount > 0
+    local complete = hasRequirements and (not course.requireWritten or writtenRequired) and (not writtenRequired or writtenPassed) and passedCount == requiredCount
     return {
         writtenRequired = writtenRequired,
         writtenPassed = writtenPassed,
@@ -142,7 +143,7 @@ lib.callback.register('pm-education:server:myEnrollments', function(src, institu
     if not citizenid or type(institutionId) ~= 'string' or not Config.Institutions[institutionId] or Config.Institutions[institutionId].enabled == false then return {} end
     local rows = MySQL.query.await(
         'SELECT id, course_id, status FROM pm_education_enrollments WHERE citizenid = ? AND institution_id = ? ORDER BY id DESC LIMIT 50',
-        { citizenid, institutionId })
+        { citizenid, institutionId }) or {}
     for _, row in ipairs(rows) do
         local course = Config.Institutions[institutionId].courses[row.course_id]
         row.courseLabel = course and course.label or row.course_id
