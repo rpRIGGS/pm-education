@@ -66,19 +66,30 @@ local function paymentStart(player, citizenid, institutionId, courseId, enrollme
         MySQL.update.await("UPDATE pm_education_payments SET status = 'failed', details = 'Insufficient cash or debit rejected' WHERE id = ?", { paymentId })
         return nil, 'Insufficient cash'
     end
-    MySQL.update.await("UPDATE pm_education_payments SET status = 'charged' WHERE id = ?", { paymentId })
+    local marked, changed = pcall(MySQL.update.await, "UPDATE pm_education_payments SET status = 'charged' WHERE id = ?", { paymentId })
+    if not marked or not changed or changed < 1 then
+        -- Do not debit again: a ledger update failure leaves a potentially charged row.
+        local returned = amount == 0 or player.Functions.AddMoney('cash', amount, 'PM Education Payment Recovery')
+        pcall(MySQL.update.await,
+            'UPDATE pm_education_payments SET status = ?, details = ? WHERE id = ?',
+            { returned and 'refunded' or 'refund_failed', 'Could not confirm charged ledger state', paymentId })
+        return nil, 'Payment processing unavailable; check payment ledger'
+    end
     return paymentId
 end
 
 local function paymentComplete(paymentId, enrollmentId)
-    MySQL.update.await(
+    local ok, changed = pcall(MySQL.update.await,
         "UPDATE pm_education_payments SET status = 'completed', enrollment_id = COALESCE(?, enrollment_id) WHERE id = ? AND status = 'charged'",
         { enrollmentId, paymentId })
+    if not ok or not changed or changed < 1 then
+        print(('[pm-education] Payment #%s requires reconciliation after successful operation'):format(paymentId))
+    end
 end
 
 local function paymentRefund(player, paymentId, amount, details)
     local refunded = amount == 0 or player.Functions.AddMoney('cash', amount, 'PM Education Refund')
-    MySQL.update.await(
+    pcall(MySQL.update.await,
         'UPDATE pm_education_payments SET status = ?, details = ? WHERE id = ?',
         { refunded and 'refunded' or 'refund_failed', details, paymentId })
     return refunded
