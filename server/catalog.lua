@@ -118,7 +118,10 @@ lib.callback.register('pm-education:server:catalogCreateDraft', function(src, in
                 'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
                 {inserted, institutionId, actor, 'create_draft', 'Created revision ' .. nextRevision})
             if not auditOk or not auditResult then
+                -- Do not expose an unaudited authoring revision as a successful draft.
+                -- Preserve the failed record for administrator reconciliation.
                 print(('[pm-education] Draft #%s created without audit; administrator review required'):format(inserted))
+                return nil
             end
             return inserted
         end)
