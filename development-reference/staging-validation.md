@@ -60,3 +60,18 @@ migration files without a database backup.
 CI validates Lua parsing, not FiveM natives, MySQL transactions, game-side
 permissions, NPC interactions or economic side effects. These require staging
 tests with actual resources and database.
+
+## Additional written-exam and catalog race regressions
+
+- For an enrolled course with `requireWritten=false`, confirm progress ignores
+  the legacy exam bank and the exam desk refuses to charge an exam fee.
+- For `requireWritten=true` without any available questions, completion must
+  remain blocked and no exam fee may be charged.
+- For a pinned exam revision, a passing attempt against a different revision
+  must not satisfy the written requirement.
+- Attempt simultaneous publish/publish and publish/retire actions on the same
+  catalog key. Confirm one published revision at most and correct audit records.
+- Force an authoring audit insert failure. Draft creation must not report
+  success or retry into multiple draft revisions.
+- Force the catalog integrity SQL query to fail. The audit must report failure,
+  not a misleading zero-error result.
