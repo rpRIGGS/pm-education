@@ -121,10 +121,11 @@ lib.callback.register('pm-education:server:catalogCreateDraft', function(src, in
                 -- Do not expose an unaudited authoring revision as a successful draft.
                 -- Preserve the failed record for administrator reconciliation.
                 print(('[pm-education] Draft #%s created without audit; administrator review required'):format(inserted))
-                return nil
+                return false
             end
             return inserted
         end)
+        if ok and result == false then return nil end
         if ok and result then return result end
         if not ok then
             print(('[pm-education] Catalog draft attempt %d failed for %s/%s/%s: %s'):format(
