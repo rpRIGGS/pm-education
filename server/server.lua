@@ -300,7 +300,7 @@ lib.callback.register('pm-education:server:myEnrollments', function(src, institu
         'SELECT id, course_id, status FROM pm_education_enrollments WHERE citizenid = ? AND institution_id = ? ORDER BY id DESC LIMIT 50',
         { citizenid, institutionId }) or {}
     for _, row in ipairs(rows) do
-        local course = Config.Institutions[institutionId].courses[row.course_id]
+        local course = getCourse(institutionId, row.course_id)
         row.courseLabel = course and course.label or row.course_id
     end
     return rows
