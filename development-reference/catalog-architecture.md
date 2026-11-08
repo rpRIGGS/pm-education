@@ -23,7 +23,7 @@ Published content is not editable in place. Staff create replacement drafts, edi
 1. FiveM/oxmysql runtime testing, including actual SQL migrations and management desk permissions.
 2. Strengthen database concurrency controls and audit transaction boundaries for draft edits/imports; publication now uses a transaction for retirement, activation and audit.
 3. Expand runtime integration beyond published course labels/passing scores and credential labels: practical requirements, enrollment policies, prerequisites and richer credential rules remain config-driven.
-4. Export of in-game content back to reviewable development files, and conflict-safe import previews.
+4. Conflict-safe import previews and a round-trip conversion from exported JSON into reviewable development Lua templates. A console-only JSON export is now available.
 5. Better administrator UX (richer credential requirements, unsaved-change warnings) and full end-to-end tests.
 6. Replace provisional POST curriculum only after approval; never invent job grades, coordinates, or policy questions.
 
@@ -37,3 +37,6 @@ For existing configured courses only, newly published course catalog records ove
 
 ## Additional transaction hardening
 Draft save, explicit retirement, and publication now pair content changes with audit inserts in SQL transactions. These transaction calls still require concurrency and affected-row verification in a running FiveM/oxmysql environment; transaction success alone does not prove the targeted row changed. Course publication is limited to course IDs present in the institution configuration, preventing drafts for unoffered courses from appearing operational.
+
+## Console export
+Use `pm_education_export post` (or another configured institution ID) in the **server console**. This writes `export_<institution>.json` at the resource root, including all revisions and exam answer keys for development review. Do not put exported JSON in a client-served resource, public repository, or web-accessible folder. Export is a snapshot, not an automatic GitHub push or re-import; review before adapting content back into development templates. The resource directory must be writable by the server process.
