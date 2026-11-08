@@ -369,7 +369,15 @@ local function openInstructorManagement(institutionId)
  local isInstructor = instructorRule and (tonumber(job.grade and job.grade.level) or -1) >= (instructorRule.minGrade or 0)
  if not isInstructor then
   if isAdmin then
-   return OpenPMEducationCatalog(institutionId)
+   lib.registerContext({
+    id='pm_education_admin_management',
+    title='Institution Administration',
+    options={
+     {title='Curriculum Administration',onSelect=function() OpenPMEducationCatalog(institutionId) end},
+     {title='Credential Administration',onSelect=function() openCredentialAdministration(institutionId) end}
+    }
+   })
+   return lib.showContext('pm_education_admin_management')
   end
   return notify('Institution management access denied.', 'error')
  end
