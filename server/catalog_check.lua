@@ -98,6 +98,20 @@ local function audit(institutionId)
                 institutionId .. '/' .. key .. ': ' .. count)
         end
     end
+    local orphanCurricula = MySQL.scalar.await(
+        'SELECT COUNT(*) FROM pm_education_enrollments e LEFT JOIN pm_education_catalog c ON e.curriculum_revision_id = c.id AND c.institution_id = e.institution_id AND c.content_type = \'course\' AND c.content_key = e.course_id WHERE e.institution_id = ? AND e.curriculum_revision_id IS NOT NULL AND c.id IS NULL',
+        {institutionId})
+    if tonumber(orphanCurricula or 0) > 0 then
+        report(problems, 'ERROR', 'ORPHAN_COURSE_REVISIONS',
+            institutionId .. ': ' .. orphanCurricula .. ' enrollments')
+    end
+    local orphanExams = MySQL.scalar.await(
+        'SELECT COUNT(*) FROM pm_education_enrollments e LEFT JOIN pm_education_catalog c ON e.exam_revision_id = c.id AND c.institution_id = e.institution_id AND c.content_type = \'exam\' AND c.content_key = e.course_id WHERE e.institution_id = ? AND e.exam_revision_id IS NOT NULL AND c.id IS NULL',
+        {institutionId})
+    if tonumber(orphanExams or 0) > 0 then
+        report(problems, 'ERROR', 'ORPHAN_EXAM_ENROLLMENT_REVISIONS',
+            institutionId .. ': ' .. orphanExams .. ' enrollments')
+    end
     local orphanAttempts = MySQL.scalar.await(
         'SELECT COUNT(*) FROM pm_education_attempts a LEFT JOIN pm_education_catalog c ON a.catalog_revision_id = c.id WHERE a.catalog_revision_id IS NOT NULL AND c.id IS NULL AND a.enrollment_id IN (SELECT id FROM pm_education_enrollments WHERE institution_id = ?)',
         {institutionId})
