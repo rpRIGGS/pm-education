@@ -2,6 +2,18 @@
 -- Requires sql/pm_education_catalog.sql and the attempt revision migration.
 -- Published revisions are consumed by the runtime in server/server.lua.
 local Core = exports['qb-core']:GetCoreObject()
+-- Serialize catalog writes per institution/content key within this server process.
+-- The database unique index remains the cross-process publication backstop.
+local publicationLocks = {}
+local function acquirePublication(key)
+    if publicationLocks[key] then return false end
+    publicationLocks[key] = true
+    return true
+end
+local function releasePublication(key)
+    publicationLocks[key] = nil
+end
+
 
 local function authorized(src, institutionId)
     if type(institutionId) ~= 'string' then return false end
@@ -154,8 +166,8 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     elseif row.content_type == 'course' then
         if not (Config.Institutions[institutionId].courses or {})[row.content_key] then return false end
     end
-    -- Retirement, activation and audit share a transaction.
-    -- Cross-connection concurrent publication still needs a uniqueness constraint.
+    local lockKey = institutionId .. '/' .. row.content_type .. '/' .. row.content_key
+    if not acquirePublication(lockKey) then return false end
     local transactionOk, switched = pcall(MySQL.transaction.await, {
         {
             query = "UPDATE pm_education_catalog SET status = 'retired' WHERE institution_id = ? AND content_type = ? AND content_key = ? AND status = 'published'",
@@ -166,12 +178,16 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
             values = {catalogId, institutionId}
         },
         {
-            query = "INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, 'publish', ?)",
-            values = {catalogId, institutionId, actor, 'Activated revision; previous published revision retired'}
+            query = "INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) SELECT id, ?, ?, 'publish', ? FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'published'",
+            values = {institutionId, actor, 'Activated revision; previous published revision retired', catalogId, institutionId}
         }
     })
+    releasePublication(lockKey)
     if not transactionOk or not switched then return false end
-    return true
+    local published = MySQL.scalar.await(
+        "SELECT COUNT(*) FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'published'",
+        {catalogId, institutionId})
+    return tonumber(published or 0) == 1
 end)
 
 -- Retire an existing published revision before activating its replacement.
