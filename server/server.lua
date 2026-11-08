@@ -62,7 +62,12 @@ local function getCourse(institutionId, courseId, enrollmentId)
     local params = revisionId and {revisionId,institutionId,courseId} or {institutionId,courseId}
     local ok,row = pcall(MySQL.single.await,query,params)
     if not ok then return nil,institution end
-    if not row then return revisionId and nil or base,institution end
+    if not row then
+        -- A missing pinned revision is a data-integrity failure, never a
+        -- reason to substitute a different curriculum.
+        if revisionId then return nil, institution end
+        return base, institution
+    end
     local decoded,payload = pcall(json.decode,row.payload_json)
     if not decoded or type(payload) ~= 'table' or type(payload.label) ~= 'string' or
         type(payload.passPercent) ~= 'number' or payload.passPercent < 0 or payload.passPercent > 100 then
