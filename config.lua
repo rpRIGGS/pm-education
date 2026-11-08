@@ -13,13 +13,11 @@ Config.Institutions = {
         courses = {
             transport_management = {
                 label = 'Transport Management', enrollmentFee = 100, examFee = 50,
-                passPercent = 100,
-                questions = {{ question = 'What is 2 + 2?', answers = {'3','4','5'}, correct = 2 }}
+                passPercent = 100, requireWritten = true
             },
             flight_aerodynamics = {
                 label = 'Flight Aerodynamics', enrollmentFee = 150, examFee = 75,
-                passPercent = 100,
-                questions = {{ question = 'What is the speed of light?', answers = {'300,000 km/s','150,000 km/s','450,000 km/s'}, correct = 1 }}
+                passPercent = 100, requireWritten = true
             }
         }
     }
@@ -44,7 +42,7 @@ Config.Institutions.post = {
    requireWritten = true, -- Fail closed until POST written questions are configured
    credentialId = 'post_basic_accreditation',
    credentialLabel = 'POST Basic Academy Accreditation',
-   questions = {}, -- Written question bank pending approval; exams are unavailable until populated.
+   -- Written questions and answer keys: server/questions.lua (server only).
    practicalRequirements = {
     { id = 'code5', label = 'Code 5 Traffic Stop' },
     { id = 'pursuit', label = 'Vehicle Pursuit' },
