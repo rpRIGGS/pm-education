@@ -112,3 +112,19 @@ Legacy enrollments with NULL course/exam revision IDs use the legacy configured
 course and question bank. They must **not** inherit later published catalog
 revisions. Legacy configuration is not a historical snapshot; server config
 changes can still affect these old enrollments.
+
+## Pre-enrollment exam readiness
+
+- With a course explicitly requiring written examination and no published
+  exam or approved legacy questions, verify enrollment is rejected **before**
+  player debit and before creation of any enrollment record.
+- With a published exam available, verify enrollment pins that exact exam
+  revision; publish a replacement and confirm the existing student remains
+  on their original exam.
+- With a practical-only course (`requireWritten=false`), verify enrollment
+  remains possible without any question bank.
+- Simulate a catalog SQL outage before enrollment; no payment should be
+  attempted for courses with written requirements.
+- Confirm MariaDB CI rejects a duplicate credential award and validates
+  transaction rollback. This does not substitute for testing oxmysql
+  transactions on a live staging server.
