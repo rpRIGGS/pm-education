@@ -239,7 +239,7 @@ lib.callback.register('pm-education:server:myEnrollments', function(src, institu
     return rows
 end)
 
-RegisterNetEvent('pm-education:server:requestExam', function(institutionId, courseId)
+RegisterNetEvent('pm-education:server:requestExam', function(institutionId, courseId, paymentMethod)
     local src = source
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
