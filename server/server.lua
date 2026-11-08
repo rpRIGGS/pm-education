@@ -323,3 +323,67 @@ RegisterNetEvent('pm-education:server:cancelExam', function(institutionId, cours
     activeExams[src] = nil
     notify(src, 'Exam cancelled. Any charged exam fee is not automatically refunded.', 'inform')
 end)
+
+-- Credential administrators require a separately configured job/grade AND an institution desk.
+local function credentialAdminAuthorized(src, institutionId)
+    if not instructorAuthorized(src, institutionId) then return false end
+    local institution = Config.Institutions[institutionId]
+    local job = QBCore.Functions.GetPlayer(src).PlayerData.job
+    local rule = institution.credentialAdminJobs and institution.credentialAdminJobs[job.name]
+    return rule ~= nil and (tonumber(job.grade and job.grade.level) or -1) >= (rule.minGrade or 0)
+end
+
+lib.callback.register('pm-education:server:adminCredentials', function(src, institutionId, enrollmentId)
+    if not credentialAdminAuthorized(src, institutionId) or type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 then return {} end
+    local record = MySQL.single.await(
+        'SELECT id FROM pm_education_enrollments WHERE id = ? AND institution_id = ?',
+        { enrollmentId, institutionId })
+    if not record then return {} end
+    return MySQL.query.await(
+        'SELECT id, credential_label, status, issued_at FROM pm_education_credentials WHERE enrollment_id = ? AND institution_id = ? ORDER BY id DESC',
+        { enrollmentId, institutionId }) or {}
+end)
+
+lib.callback.register('pm-education:server:credentialHistory', function(src, institutionId, credentialId)
+    if not credentialAdminAuthorized(src, institutionId) or type(credentialId) ~= 'number' or credentialId % 1 ~= 0 then return {} end
+    local record = MySQL.single.await('SELECT id FROM pm_education_credentials WHERE id = ? AND institution_id = ?', { credentialId, institutionId })
+    if not record then return {} end
+    return MySQL.query.await(
+        'SELECT previous_status, new_status, reason, actor_citizenid, recorded_at FROM pm_education_credential_audit WHERE credential_id = ? ORDER BY id DESC LIMIT 50',
+        { credentialId }) or {}
+end)
+
+lib.callback.register('pm-education:server:setCredentialStatus', function(src, institutionId, credentialId, nextStatus, reason)
+    if not credentialAdminAuthorized(src, institutionId) then return false, 'Unauthorized' end
+    if type(credentialId) ~= 'number' or credentialId % 1 ~= 0 or
+        (nextStatus ~= 'active' and nextStatus ~= 'suspended' and nextStatus ~= 'revoked') or
+        type(reason) ~= 'string' or #reason < 10 or #reason > 1000 or not reason:match('%S') then
+        return false, 'Invalid status or reason (10-1000 characters required)'
+    end
+    local actor = QBCore.Functions.GetPlayer(src)
+    if not actor then return false, 'Instructor not found' end
+    -- A transaction makes status and audit inseparable. No silent, unaudited changes.
+    local ok, result = pcall(function()
+        local record = MySQL.single.await(
+            'SELECT id, citizenid, status FROM pm_education_credentials WHERE id = ? AND institution_id = ?',
+            { credentialId, institutionId })
+        if not record then return false, 'Credential not found' end
+        if record.status == nextStatus then return false, 'Credential already has this status' end
+        if record.status == 'revoked' and nextStatus == 'active' then return false, 'Revoked credentials cannot be reinstated automatically' end
+        if record.status == 'expired' then return false, 'Expired credentials require renewal workflow' end
+        local success = MySQL.transaction.await({
+            {
+                query = 'UPDATE pm_education_credentials SET status = ? WHERE id = ? AND institution_id = ? AND status = ?',
+                values = { nextStatus, credentialId, institutionId, record.status }
+            },
+            {
+                query = 'INSERT INTO pm_education_credential_audit (credential_id, institution_id, subject_citizenid, actor_citizenid, previous_status, new_status, reason) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                values = { credentialId, institutionId, record.citizenid, actor.PlayerData.citizenid, record.status, nextStatus, reason }
+            }
+        })
+        if not success then return false, 'Database transaction failed' end
+        return true, 'Credential status updated and audited'
+    end)
+    if not ok then return false, 'Credential update failed' end
+    return result
+end)
