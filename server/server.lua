@@ -63,7 +63,7 @@ local function paymentStart(player, citizenid, institutionId, courseId, enrollme
         { citizenid, institutionId, courseId, enrollmentId, paymentType, amount })
     if not ok or not paymentId then return nil, 'Payment ledger unavailable' end
     if not charge(player, amount, 'PM Education ' .. paymentType) then
-        MySQL.update.await("UPDATE pm_education_payments SET status = 'failed', details = 'Insufficient cash or debit rejected' WHERE id = ?", { paymentId })
+        pcall(MySQL.update.await, "UPDATE pm_education_payments SET status = 'failed', details = 'Insufficient cash or debit rejected' WHERE id = ?", { paymentId })
         return nil, 'Insufficient cash'
     end
     local marked, changed = pcall(MySQL.update.await, "UPDATE pm_education_payments SET status = 'charged' WHERE id = ?", { paymentId })
@@ -159,7 +159,11 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId)
     if not player or not course or not nearInteraction(src, institutionId, 'admissions') then return end
     if enrollmentLocks[citizenid] then return end
     enrollmentLocks[citizenid] = true
-    local existing = enrollment(citizenid, institutionId, courseId)
+    local lookupOk, existing = pcall(enrollment, citizenid, institutionId, courseId)
+    if not lookupOk then
+        enrollmentLocks[citizenid] = nil
+        return notify(src, 'Enrollment database unavailable. No fee charged.', 'error')
+    end
     if existing then
         enrollmentLocks[citizenid] = nil
         return notify(src, 'Enrollment already exists. See My Enrollments.', 'error')
