@@ -14,7 +14,7 @@ end
 local function getCourse(institutionId, courseId)
     if type(institutionId) ~= 'string' or type(courseId) ~= 'string' then return end
     local institution = Config.Institutions[institutionId]
-    return institution and institution.enabled ~= false and institution.courses[courseId], institution
+    return institution and institution.enabled ~= false and institution.courses and institution.courses[courseId], institution
 end
 
 local function nearInteraction(src, institutionId, kind, courseId)
