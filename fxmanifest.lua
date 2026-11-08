@@ -18,7 +18,8 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/questions.lua',
     'server/server.lua',
-    'server/catalog.lua'
+    'server/catalog.lua',
+    'server/import.lua'
 }
 
 dependencies {
@@ -27,4 +28,9 @@ dependencies {
     'qb-target',
     'ox_lib',
     'oxmysql'
+}
+
+files {
+    'development/institutions/post.lua',
+    'development/institutions/sandy_university.lua'
 }
