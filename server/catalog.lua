@@ -127,8 +127,8 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     if not decoded or not validPayload(row.content_type, payload) then return false end
     if row.content_type == 'exam' and #payload.questions == 0 then return false end
     local ok, changed = pcall(MySQL.update.await,
-        "UPDATE pm_education_catalog SET status = 'published', published_at = NOW() WHERE id = ? AND institution_id = ? AND status = 'draft'",
-        {catalogId, institutionId})
+        "UPDATE pm_education_catalog SET status = 'published', published_at = NOW() WHERE id = ? AND institution_id = ? AND status = 'draft' AND NOT EXISTS (SELECT 1 FROM (SELECT id FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ? AND status = 'published') AS active_revision)",
+        {catalogId, institutionId, institutionId, row.content_type, row.content_key})
     if not ok or changed ~= 1 then return false end
     MySQL.insert.await(
         'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
