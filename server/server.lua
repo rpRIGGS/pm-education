@@ -432,7 +432,11 @@ RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, 
   'INSERT INTO pm_education_practical_results (enrollment_id, citizenid, institution_id, course_id, requirement_id, result, notes, examiner_citizenid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   {enrollmentId, record.citizenid, institutionId, record.course_id, requirementId, result, notes, examiner.PlayerData.citizenid})
  if not ok or not inserted then return notify(src, 'Evaluation could not be saved.', 'error') end
- local progress = refreshCompletion(enrollmentId, institutionId, record.course_id)
+ local refreshed, progress = pcall(refreshCompletion, enrollmentId, institutionId, record.course_id)
+ if not refreshed then
+  print(('[pm-education] Practical result #%s saved; completion refresh failed for enrollment #%s'):format(inserted, enrollmentId))
+  return notify(src, 'Evaluation saved, but completion needs administrator review.', 'error')
+ end
  notify(src, progress and progress.complete and 'Evaluation saved. All course requirements complete.' or 'Instructor evaluation recorded.', 'success')
 end)
 
