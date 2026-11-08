@@ -324,7 +324,13 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     if not ok or not saved then
         return notify(src, 'Exam results could not be saved. Contact an administrator.', 'error')
     end
-    if passed then refreshCompletion(session.enrollmentId, institutionId, courseId) end
+    if passed then
+        local completionOk, completionError = pcall(refreshCompletion, session.enrollmentId, institutionId, courseId)
+        if not completionOk then
+            print(('[pm-education] Exam attempt #%s saved but completion refresh failed: %s'):format(saved, tostring(completionError)))
+            return notify(src, 'Exam passed and saved, but credential completion needs administrator review.', 'error')
+        end
+    end
     notify(src, ('Exam %s: %d%%'):format(passed and 'passed' or 'failed', score), passed and 'success' or 'error')
 end)
 
