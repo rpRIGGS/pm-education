@@ -25,3 +25,27 @@ Config.Institutions = {
     }
 }
 -- Course data above is inherited demonstration content, not the approved final catalog.
+
+-- POST is the first instructor-management pilot. Coordinates remain unset until the academy location is confirmed.
+Config.Institutions.post = {
+ label = 'Peace Officer Standards and Training (POST)',
+ society = 'post',
+ staffJobs = { post = { minGrade = 0 } }, -- REPLACE with approved academy job and grade before use
+ admissions = {},
+ examiners = {},
+ management = {}, -- { coords = vector3(...), length = 1.5, width = 1.5, heading = 0.0, label = 'POST Instructor Desk' }
+ courses = {
+  post_basic = {
+   label = 'POST Basic Academy',
+   enrollmentFee = 0,
+   examFee = 0,
+   passPercent = 80,
+   questions = {}, -- Written question bank pending approval; exams are unavailable until populated.
+   practicalRequirements = {
+    { id = 'code5', label = 'Code 5 Traffic Stop' },
+    { id = 'pursuit', label = 'Vehicle Pursuit' },
+    { id = 'evasive', label = 'Evasive Driving' }
+   }
+  }
+ }
+}
