@@ -449,3 +449,15 @@ lib.callback.register('pm-education:server:setCredentialStatus', function(src, i
     if not ok then return false, 'Credential update failed' end
     return result, message
 end)
+
+-- Read-only console-side reconciliation. No network event and no automatic re-charge.
+RegisterCommand('pm_education_payments', function(src)
+    if src ~= 0 then return end
+    local ok, rows = pcall(MySQL.query.await,
+        "SELECT id, citizenid, payment_type, amount, status, details, created_at FROM pm_education_payments WHERE status IN ('pending','charged','refund_failed') ORDER BY id DESC LIMIT 50")
+    if not ok then return print('[pm-education] Payment ledger unavailable') end
+    print(('[pm-education] Payments needing review: %d (latest 50)'):format(#(rows or {})))
+    for _, row in ipairs(rows or {}) do
+        print(('[pm-education] #%s %s %s $%s %s %s'):format(row.id, row.citizenid, row.payment_type, row.amount, row.status, row.details or ''))
+    end
+end, false)
