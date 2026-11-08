@@ -302,6 +302,24 @@ lib.callback.register('pm-education:server:myPayments', function(src, institutio
         { citizenid, institutionId }) or {}
 end)
 
+-- Return only curriculum-facing fields. Server retains authority over fees, permissions,
+-- evaluation submissions, and enrollment state.
+lib.callback.register('pm-education:server:courseOutline', function(src, institutionId, courseId)
+    local player = playerFor(src)
+    if not player then return nil end
+    local course = getCourse(institutionId, courseId)
+    if not course then return nil end
+    local requirements = {}
+    for _, requirement in ipairs(course.practicalRequirements or {}) do
+        requirements[#requirements + 1] = {id = requirement.id, label = requirement.label}
+    end
+    return {
+        label = course.label,
+        requireWritten = course.requireWritten == true,
+        practicalRequirements = requirements
+    }
+end)
+
 lib.callback.register('pm-education:server:myEnrollments', function(src, institutionId)
     local _, citizenid = playerFor(src)
     if not citizenid or type(institutionId) ~= 'string' or not Config.Institutions[institutionId] or Config.Institutions[institutionId].enabled == false then return {} end
