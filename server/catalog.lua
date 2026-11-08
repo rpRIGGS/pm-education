@@ -153,7 +153,11 @@ lib.callback.register('pm-education:server:catalogSaveDraft', function(src, inst
          values = {institutionId, actor, 'Updated draft content', catalogId, institutionId}}
     })
     releasePublication(lockKey)
-    return ok and saved == true
+    if not ok or not saved then return false end
+    local draft = MySQL.scalar.await(
+        "SELECT COUNT(*) FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND status = 'draft'",
+        {catalogId, institutionId})
+    return tonumber(draft or 0) == 1
 end)
 
 -- Explicit publication; new exam sessions use the activated revision.
