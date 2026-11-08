@@ -24,7 +24,10 @@ Published content is not editable in place. Staff create replacement drafts, edi
 2. Atomic revision switching and stronger database concurrency/transaction controls for catalog changes and audit writes.
 3. Runtime integration for published course and credential definitions (currently only published exam question content is consumed).
 4. Export of in-game content back to reviewable development files, and conflict-safe import previews.
-5. Better administrator UX (reorder questions, richer credential requirements, unsaved-change warnings) and full end-to-end tests.
+5. Better administrator UX (richer credential requirements, unsaved-change warnings) and full end-to-end tests.
 6. Replace provisional POST curriculum only after approval; never invent job grades, coordinates, or policy questions.
 
 **Do not mistake committed code for production-tested functionality.** The earlier setup guide contains historical development notes that have been superseded; use this inventory and the actual source files for the current catalog state.
+
+## Import fingerprint behavior
+The console importer stores a source fingerprint for each development-authored revision. Re-running an unchanged template does not create another draft even if an administrator subsequently edits that draft. Changed source templates create separate revisions for review. Hashes are non-cryptographic change identifiers; they are not authenticity proofs. All imports still require explicit publication.
