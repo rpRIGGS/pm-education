@@ -235,7 +235,7 @@ local function courseProgress(enrollmentId, course, institutionId, courseId)
 end
 
 local function refreshCompletion(enrollmentId, institutionId, courseId)
-    local course = getCourse(institutionId, courseId)
+    local course = getCourse(institutionId, courseId, enrollmentId)
     if not course then return end
     local progress = courseProgress(enrollmentId, course, institutionId, courseId)
     if progress.complete then
@@ -290,9 +290,22 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         enrollmentLocks[citizenid] = nil
         return notify(src, paid and paymentError or 'Payment processing failed; review ledger before retrying.', 'error')
     end
-    local ok, id = pcall(MySQL.insert.await,
-        'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id) VALUES (?, ?, ?)',
-        { citizenid, institutionId, courseId })
+    -- Capture the published course revision at enrollment creation.
+    -- A NULL revision is an explicit legacy-config snapshot, never auto-backfilled.
+    local revisionOk, revisionId = pcall(MySQL.scalar.await,
+        "SELECT id FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'course' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1",
+        {institutionId, courseId})
+    if not revisionOk then
+        enrollmentLocks[citizenid] = nil
+        local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Curriculum revision lookup failed')
+        return notify(src, refunded and 'Enrollment cancelled; payment refunded.' or 'Enrollment cancelled; refund requires review.', 'error')
+    end
+    local insertSql = revisionId
+        and 'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id, curriculum_revision_id) VALUES (?, ?, ?, ?)'
+        or 'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id) VALUES (?, ?, ?)'
+    local insertParams = {citizenid, institutionId, courseId}
+    if revisionId then insertParams[#insertParams + 1] = revisionId end
+    local ok, id = pcall(MySQL.insert.await, insertSql, insertParams)
     if not ok or not id then
         enrollmentLocks[citizenid] = nil
         local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Enrollment insert failed')
@@ -553,7 +566,7 @@ lib.callback.register('pm-education:server:courseProgress', function(src, instit
         'SELECT course_id, status FROM pm_education_enrollments WHERE id = ? AND institution_id = ?',
         { enrollmentId, institutionId })
     if not record then return nil end
-    local course = getCourse(institutionId, record.course_id)
+    local course = getCourse(institutionId, record.course_id, enrollmentId)
     if not course then return nil end
     local progress = courseProgress(enrollmentId, course, institutionId, record.course_id)
     progress.enrollmentStatus = record.status
