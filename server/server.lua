@@ -349,9 +349,10 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
     end
     -- Refuse to enroll into an unfulfillable written course. An exam
     -- published later would not be pinned to this enrollment.
-    if course.requireWritten == true then
+    if course.requireWritten ~= false then
         local questionsOk, questions, _, questionError = pcall(getQuestions, institutionId, courseId)
-        if not questionsOk or questionError or type(questions) ~= 'table' or #questions == 0 then
+        if not questionsOk or questionError or type(questions) ~= 'table' or
+            (course.requireWritten == true and #questions == 0) then
             enrollmentLocks[citizenid] = nil
             return notify(src, 'This course has no available approved written examination. No fee charged.', 'error')
         end
