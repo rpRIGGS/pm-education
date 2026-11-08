@@ -4,7 +4,19 @@ local enrollmentLocks = {}
 local credentialLocks = {}
 
 local function getQuestions(institutionId, courseId)
-    return EducationQuestions and EducationQuestions[institutionId] and EducationQuestions[institutionId][courseId] or {}
+    local legacy = EducationQuestions and EducationQuestions[institutionId] and EducationQuestions[institutionId][courseId] or {}
+    -- The catalog is authoritative once a published revision exists.
+    local ok, row = pcall(MySQL.single.await,
+        "SELECT id, payload_json FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'exam' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1",
+        {institutionId, courseId})
+    if not ok then
+        print('[pm-education] Catalog unavailable; refusing to silently use legacy questions')
+        return {}, nil
+    end
+    if not row then return legacy, nil end
+    local decoded, payload = pcall(json.decode, row.payload_json)
+    if not decoded or type(payload) ~= 'table' or type(payload.questions) ~= 'table' then return {}, nil end
+    return payload.questions, row.id
 end
 
 local function notify(src, message, kind)
@@ -261,7 +273,8 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
     if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId) then return end
-    if #getQuestions(institutionId, courseId) == 0 then
+    local selectedQuestions, revisionId = getQuestions(institutionId, courseId)
+    if #selectedQuestions == 0 then
         return notify(src, 'Written examination questions are not configured yet.', 'error')
     end
     if activeExams[src] and (activeExams[src].pending or os.time() - activeExams[src].started <= 1800) then
@@ -276,7 +289,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     end
     local questions = {}
     local answerKey = {}
-    for index, question in ipairs(getQuestions(institutionId, courseId)) do
+    for index, question in ipairs(selectedQuestions) do
         if type(question.question) ~= 'string' or type(question.answers) ~= 'table' or
             #question.answers < 2 or type(question.correct) ~= 'number' or
             question.correct % 1 ~= 0 or question.correct < 1 or question.correct > #question.answers then
@@ -317,7 +330,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
             return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam failed. Refund needs administrator review.', 'error')
         end
     end
-    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey, passPercent = threshold }
+    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey, passPercent = threshold, catalogRevisionId = revisionId }
     local completedOk, credited = pcall(paymentComplete, paymentId, record.id, institutionId, fee)
     if not completedOk or not credited then
         notify(src, 'Exam started; society payment requires administrator reconciliation.', 'error')
@@ -349,8 +362,8 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local score = math.floor(correct * 100 / #answerKey)
     local passed = score >= session.passPercent
     local ok, saved = pcall(MySQL.insert.await,
-        'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json) VALUES (?, ?, ?, ?, ?)',
-        {session.enrollmentId, citizenid, score, passed and 1 or 0, json.encode(answers)})
+        'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json, catalog_revision_id) VALUES (?, ?, ?, ?, ?, ?)',
+        {session.enrollmentId, citizenid, score, passed and 1 or 0, json.encode(answers), session.catalogRevisionId})
     if not ok or not saved then
         return notify(src, 'Exam results could not be saved. Contact an administrator.', 'error')
     end
