@@ -1,7 +1,11 @@
 Config = {}
 Config.Debug = false
+-- Deployment switches. Keep false until actual locations and approved staff jobs are configured.
+Config.EnableDemoUniversity = false
+Config.EnablePOST = true
 Config.Institutions = {
     sandy_university = {
+        enabled = false, -- PLACEHOLDER: inherited demo NPCs are NOT at Sandy Shores University
         label = 'Sandy Shores University',
         society = 'university',
         admissions = {
@@ -27,6 +31,7 @@ Config.Institutions = {
 -- POST is the first instructor-management pilot. Coordinates remain unset until the academy location is confirmed.
 Config.Institutions.post = {
  label = 'Peace Officer Standards and Training (POST)',
+ enabled = true, -- POST has no interaction points until configured
  society = 'post',
  credentialAdminJobs = {}, -- REQUIRED: approved credential authority job/grade, separate from instructors
  staffJobs = {}, -- REQUIRED: set actual instructor job and minimum grade, e.g. { YOUR_JOB = { minGrade = 2 } }
