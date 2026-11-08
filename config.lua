@@ -13,7 +13,9 @@ Config.Institutions = {
     sandy_university = {
         enabled = false, -- PLACEHOLDER: inherited demo NPCs are NOT at Sandy Shores University
         label = 'Sandy Shores University',
-        society = 'university',
+        society = 'ssuniversity',
+        staffJobs = { ssuniversity = { minGrade = 2 } },
+        credentialAdminJobs = { ssuniversity = { minGrade = 5 } },
         admissions = {
             { model = 'a_m_m_business_01', coords = vector4(-1667.9, 190.13, 60.86, 19.6), label = 'University Admissions' }
         },
