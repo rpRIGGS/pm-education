@@ -75,9 +75,15 @@ local function paymentStatus(paymentId, status, details)
 end
 
 local function paymentRefund(player, paymentId, amount, method, details)
-    local refunded = amount == 0 or player.Functions.AddMoney(method, amount, 'PM Education Refund') == true
-    paymentStatus(paymentId, refunded and 'refunded' or 'refund_failed', details)
-    return refunded
+    local ok, result = pcall(function()
+        return amount == 0 or player.Functions.AddMoney(method, amount, 'PM Education Refund') == true
+    end)
+    if not ok then
+        paymentStatus(paymentId, 'refund_failed', details .. '; refund result uncertain - inspect money logs')
+        return false
+    end
+    paymentStatus(paymentId, result and 'refunded' or 'refund_failed', details)
+    return result
 end
 
 local function paymentStart(player, citizenid, institutionId, courseId, enrollmentId, paymentType, amount, method)
@@ -89,7 +95,12 @@ local function paymentStart(player, citizenid, institutionId, courseId, enrollme
         'INSERT INTO pm_education_payments (citizenid, institution_id, course_id, enrollment_id, payment_type, amount, money_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
         { citizenid, institutionId, courseId, enrollmentId, paymentType, amount, method })
     if not ok or not paymentId then return nil, 'Payment ledger unavailable' end
-    if not charge(player, amount, 'PM Education ' .. paymentType, method) then
+    local debitOk, debited = pcall(charge, player, amount, 'PM Education ' .. paymentType, method)
+    if not debitOk then
+        paymentStatus(paymentId, 'pending', 'Player debit result uncertain; inspect QBCore money logs before retrying')
+        return nil, 'Payment status uncertain; contact an administrator before retrying'
+    end
+    if not debited then
         paymentStatus(paymentId, 'failed', 'Player debit rejected')
         return nil, 'Insufficient funds or payment rejected'
     end
