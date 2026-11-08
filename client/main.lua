@@ -290,17 +290,26 @@ local function openInstructorStudent(institutionId, student)
  if not course then return notify('Course requirements unavailable.', 'error') end
  local progress = lib.callback.await('pm-education:server:courseProgress', false, institutionId, student.id)
  if not progress then return notify('Unable to load course progress.', 'error') end
- local history = lib.callback.await('pm-education:server:instructorResults', false, institutionId, student.id) or {}
+ local history = lib.callback.await('pm-education:server:instructorResults', false, institutionId, student.id)
+ if not history then return notify('Practical assessment history unavailable.', 'error') end
  local latest = {}
  for _, entry in ipairs(history) do
   if not latest[entry.requirement_id] then latest[entry.requirement_id] = entry.result end
  end
  local options = {
-  { title = 'Manage credentials', onSelect = function() manageStudentCredentials(institutionId, student) end },
   { title = 'Written examination', description = progress.writtenRequired and (progress.writtenPassed and 'Passed' or 'Not passed') or 'Question bank not configured', disabled = true },
   { title = 'Practical progress', description = ('%d of %d passed'):format(progress.practicalPassed, progress.practicalRequired), disabled = true },
   { title = 'Completion', description = progress.complete and 'All requirements satisfied' or 'Requirements outstanding', disabled = true }
  }
+ local institution = Config.Institutions[institutionId]
+ local player = QBCore.Functions.GetPlayerData()
+ local job = player and player.job
+ local rule = job and institution and institution.credentialAdminJobs and institution.credentialAdminJobs[job.name]
+ if rule and (tonumber(job.grade and job.grade.level) or -1) >= (rule.minGrade or 0) then
+  table.insert(options, 1, {title = 'Manage credentials', onSelect = function()
+   manageStudentCredentials(institutionId, student)
+  end})
+ end
  for _, requirement in ipairs(course.practicalRequirements or {}) do
   local selected = requirement
   options[#options + 1] = {
