@@ -121,6 +121,18 @@ openCatalog=function(institutionId)
         local id=call('catalogCreateDraft',institutionId,'exam',input[1],{label=input[2],questions={}})
         if id then openRevision(institutionId,id) else lib.notify({description='Could not create examination',type='error'}) end
     end}}
+    options[#options+1]={title='Create new course',onSelect=function()
+        local input=lib.inputDialog('New course',{{type='input',label='Internal ID',required=true,max=80},{type='input',label='Course title',required=true,max=160},{type='number',label='Passing percentage',required=true,min=0,max=100,default=80}})
+        if not input then return end
+        local id=call('catalogCreateDraft',institutionId,'course',input[1],{label=input[2],passPercent=input[3]})
+        if id then openRevision(institutionId,id) else lib.notify({description='Could not create course',type='error'}) end
+    end}
+    options[#options+1]={title='Create new certification',onSelect=function()
+        local input=lib.inputDialog('New certification',{{type='input',label='Internal ID',required=true,max=80},{type='input',label='Certification title',required=true,max=160}})
+        if not input then return end
+        local id=call('catalogCreateDraft',institutionId,'credential',input[1],{label=input[2]})
+        if id then openRevision(institutionId,id) else lib.notify({description='Could not create certification',type='error'}) end
+    end}
     for _,record in ipairs(records) do
         local id=record.id
         options[#options+1]={title=('%s / %s v%d'):format(record.content_type,record.content_key,record.revision),description=record.status,onSelect=function() openRevision(institutionId,id) end}
