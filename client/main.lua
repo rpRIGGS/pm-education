@@ -360,13 +360,23 @@ local function openCredentialAdministration(institutionId)
 end
 
 local function openInstructorManagement(institutionId)
- local students = lib.callback.await('pm-education:server:instructorStudents', false, institutionId)
- if not students then return notify('Instructor records unavailable or access denied.', 'error') end
- local options = {}
  local institution = Config.Institutions[institutionId]
  local player = QBCore.Functions.GetPlayerData()
  local job = player and player.job
- local rule = job and institution and institution.credentialAdminJobs and institution.credentialAdminJobs[job.name]
+ local adminRule = job and institution and institution.credentialAdminJobs and institution.credentialAdminJobs[job.name]
+ local instructorRule = job and institution and institution.staffJobs and institution.staffJobs[job.name]
+ local isAdmin = adminRule and (tonumber(job.grade and job.grade.level) or -1) >= (adminRule.minGrade or 0)
+ local isInstructor = instructorRule and (tonumber(job.grade and job.grade.level) or -1) >= (instructorRule.minGrade or 0)
+ if not isInstructor then
+  if isAdmin then
+   return OpenPMEducationCatalog(institutionId)
+  end
+  return notify('Institution management access denied.', 'error')
+ end
+ local students = lib.callback.await('pm-education:server:instructorStudents', false, institutionId)
+ if not students then return notify('Instructor records unavailable or access denied.', 'error') end
+ local options = {}
+ local rule = adminRule
  if rule and (tonumber(job.grade and job.grade.level) or -1) >= (rule.minGrade or 0) then
   options[#options + 1] = {
    title='Institution Curriculum Administration',
