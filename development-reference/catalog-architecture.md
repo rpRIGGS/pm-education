@@ -31,3 +31,8 @@ All calls are restricted to the configured institution administrator job/grade a
 - `catalogHistory(institutionId, catalogId)` — inspect audit events.
 
 **Important:** This is groundwork, not a finished editor. The Lua/ox_lib administration interface, controlled imports, immutable exam-attempt revision links, atomic publication switching, stronger database transaction boundaries, and deployment validation remain outstanding. The legacy exam delivery is still active and does not yet read the new catalog.
+
+## Live exam delivery integration
+Run SQL in order: `pm_education.sql`, `pm_education_catalog.sql`, then `pm_education_catalog_attempts_migration.sql`. New exam sessions select the latest published exam revision for their institution and course ID. The selected questions, answer key, passing threshold, and catalog revision ID are captured at start. Attempts store `catalog_revision_id`; older attempts remain NULL and retain their previous status. When no published catalog exam exists, the existing server-side question bank remains the fallback. Catalog database errors fail closed instead of silently switching question sources.
+
+A published exam's `content_key` must match an existing configured course ID to be offered at that course's examiner. The course's current configured passing percentage remains authoritative until course-catalog integration is completed. New course and certification drafts are editable catalog content but are not yet automatically enrolled or issued.
