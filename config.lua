@@ -6,9 +6,7 @@ Config.Payment = {
     societyResource = 'qb-banking',
     requireSocietyAccount = true
 }
--- Deployment switches. Keep false until actual locations and approved staff jobs are configured.
-Config.EnableDemoUniversity = false
-Config.EnablePOST = true
+-- Per-institution enabled flags below control deployment.
 Config.Institutions = {
     sandy_university = {
         enabled = false, -- PLACEHOLDER: inherited demo NPCs are NOT at Sandy Shores University
@@ -16,6 +14,7 @@ Config.Institutions = {
         society = 'ssuniversity',
         staffJobs = { ssuniversity = { minGrade = 2 } },
         credentialAdminJobs = { ssuniversity = { minGrade = 5 } },
+        management = {}, -- Add real university instructor desk coordinates before enabling
         admissions = {
             { model = 'a_m_m_business_01', coords = vector4(-1667.9, 190.13, 60.86, 19.6), label = 'University Admissions' }
         },
