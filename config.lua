@@ -41,6 +41,7 @@ Config.Institutions.post = {
    enrollmentFee = 0,
    examFee = 0,
    passPercent = 80, -- PROVISIONAL passing threshold
+   requireWritten = true, -- Fail closed until POST written questions are configured
    credentialId = 'post_basic_accreditation',
    credentialLabel = 'POST Basic Academy Accreditation',
    questions = {}, -- Written question bank pending approval; exams are unavailable until populated.
