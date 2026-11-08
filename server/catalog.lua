@@ -162,6 +162,13 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     if not decoded or not validPayload(row.content_type, payload) then return false end
     if row.content_type == 'exam' then
         if #payload.questions == 0 then return false end
+        local course = (Config.Institutions[institutionId].courses or {})[row.content_key]
+        if not course then return false end
+        -- A published examination must not be an empty or malformed answer key.
+        for _, question in ipairs(payload.questions) do
+            if type(question.correct) ~= 'number' or question.correct < 1 or
+                question.correct > #question.answers then return false end
+        end
         if not (Config.Institutions[institutionId].courses or {})[row.content_key] then return false end
     elseif row.content_type == 'course' then
         if not (Config.Institutions[institutionId].courses or {})[row.content_key] then return false end
