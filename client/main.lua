@@ -292,7 +292,11 @@ end
 
 local function openInstructorManagement(institutionId)
  local students = lib.callback.await('pm-education:server:instructorStudents', false, institutionId) or {}
- local options = {}
+ local options = {
+  {title='Institution Curriculum Administration',description='Edit examinations, questions, answers and published revisions',onSelect=function()
+   OpenPMEducationCatalog(institutionId)
+  end}
+ }
  for _, student in ipairs(students) do
   local selected = student
   options[#options + 1] = {
