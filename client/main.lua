@@ -17,7 +17,11 @@ local function openExam(institutionId, courseId, questions)
         local result = lib.inputDialog(('Question %d of %d'):format(index, #questions), {
             { type = 'select', label = question.question, options = options, required = true }
         }, { allowCancel = true })
-        if not result then activeExam = false return end
+        if not result then
+            TriggerServerEvent('pm-education:server:cancelExam', institutionId, courseId)
+            activeExam = false
+            return
+        end
         answers[index] = tonumber(result[1])
     end
     TriggerServerEvent('pm-education:server:submitExam', institutionId, courseId, answers)
