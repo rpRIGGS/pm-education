@@ -90,3 +90,12 @@ questions = {
 - Server-side test results and load/security testing.
 
 **Known caution:** Current enrollment and exam fee handling is an early foundation, not a fully transactional banking integration. Test using zero-fee POST before testing paid institutions.
+
+## Testing safeguards and known behavior
+
+- POST has `requireWritten = true`: an empty written question bank blocks accreditation. This is deliberate.
+- Cancelling an exam clears its in-memory session, but currently does not refund a charged fee.
+- Practical-only courses at other institutions can omit `requireWritten` and `questions`; they still require every configured practical assessment to pass.
+- Completion records are milestones, not government license issuance.
+- **Security review pending:** exam answer keys currently live in the shared `config.lua`, so the client can inspect them. Move answer keys into server-only configuration before using examinations competitively.
+- **Credential administration pending:** revocation/suspension workflows and audited result corrections are not implemented. Do not use this build for consequential live accreditation decisions.
