@@ -58,6 +58,22 @@ local function showEnrollments(institutionId)
     lib.showContext('pm_education_my_enrollments')
 end
 
+
+local function showMyCredentials()
+    local records = lib.callback.await('pm-education:server:myCredentials', false) or {}
+    local options = {}
+    for _, record in ipairs(records) do
+        options[#options + 1] = {
+            title = record.credential_label,
+            description = ('Credential #%s | %s | %s'):format(record.id, record.institution_id, record.status),
+            disabled = true
+        }
+    end
+    if #options == 0 then options[1] = { title = 'No credentials awarded yet', disabled = true } end
+    lib.registerContext({ id = 'pm_education_my_credentials', title = 'My Credentials', options = options })
+    lib.showContext('pm_education_my_credentials')
+end
+
 local function showAdmissions(institutionId)
     local institution = Config.Institutions[institutionId]
     local options = {}
@@ -74,6 +90,10 @@ local function showAdmissions(institutionId)
     options[#options + 1] = {
         title = 'My Enrollments',
         onSelect = function() showEnrollments(institutionId) end
+    }
+    options[#options + 1] = {
+        title = 'My Credentials',
+        onSelect = showMyCredentials
     }
     lib.registerContext({ id = 'pm_education_admissions', title = institution.label .. ' Admissions', options = options })
     lib.showContext('pm_education_admissions')
