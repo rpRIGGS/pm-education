@@ -13,6 +13,9 @@ local function getQuestions(institutionId, courseId, enrollmentId)
             {enrollmentId, institutionId, courseId})
         if not enrollmentRow then return nil, nil, 'enrollment_missing' end
         examRevisionId = enrollmentRow.exam_revision_id
+        -- NULL means this enrollment was created against the legacy question
+        -- bank, not whichever exam was published later.
+        if not examRevisionId then return legacy, nil end
     end
     local sql = examRevisionId
         and "SELECT id, payload_json FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND content_type = 'exam' AND content_key = ?"
@@ -50,6 +53,8 @@ local function getCourse(institutionId, courseId, enrollmentId)
             {enrollmentId, institutionId, courseId})
         if not enrollmentRow then return nil, institution end
         revisionId = enrollmentRow.curriculum_revision_id
+        -- Legacy enrollments must never drift to a newer published course.
+        if not revisionId then return base, institution end
     end
     local query = revisionId
         and "SELECT payload_json FROM pm_education_catalog WHERE id = ? AND institution_id = ? AND content_type = 'course' AND content_key = ?"
