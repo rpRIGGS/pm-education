@@ -188,3 +188,12 @@ Credential transitions are restricted to `active -> suspended/revoked` and `susp
 An exam session now acquires an in-memory lock **before** the first yielding enrollment/payment operation, preventing repeated start requests from charging the same connected player twice concurrently. The server checks enrollment status after payment and refunds a failed start. This lock is not a distributed transaction and does not replace integration testing or reconciliation of interrupted money transfers.
 
 **Validation checklist:** repeated exam-start events; insufficient cash and bank balances; missing qb-banking society account; enrollment SQL errors; failed society credits; reconnect during checkout; credential revocation followed by attempted suspension; legitimate suspension restoration.
+
+## Further implementation safeguards
+
+- `sandy_university.management` is now an explicit empty desk list; populate it with real instructor desk positions before enabling the institution.
+- Removed unused top-level `Config.EnableDemoUniversity` and `Config.EnablePOST` flags. Institution `enabled` is authoritative.
+- The exam request stores a **server-only answer key snapshot** for that session; later changes to the question bank cannot change grading of an already-issued exam.
+- The submission handler consumes the exam session before yielding to database writes, so duplicate submissions cannot insert duplicate attempts.
+- Submission revalidates enrollment ownership and active status.
+- These protections require live verification with QBCore/oxmysql. In-memory sessions do not persist through a resource restart.
