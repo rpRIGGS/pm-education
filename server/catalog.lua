@@ -128,10 +128,11 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     if not row then return false end
     local decoded, payload = pcall(json.decode, row.payload_json)
     if not decoded or not validPayload(row.content_type, payload) then return false end
-    if row.content_type == 'exam' and #payload.questions == 0 then return false end
     if row.content_type == 'exam' then
-        local course = (Config.Institutions[institutionId].courses or {})[row.content_key]
-        if not course then return false end
+        if #payload.questions == 0 then return false end
+        if not (Config.Institutions[institutionId].courses or {})[row.content_key] then return false end
+    elseif row.content_type == 'course' then
+        if not (Config.Institutions[institutionId].courses or {})[row.content_key] then return false end
     end
     -- Serialize publication for one institution/type/key across concurrent administrators.
     -- MySQL GET_LOCK is connection scoped; use a single atomic SQL transaction instead.
