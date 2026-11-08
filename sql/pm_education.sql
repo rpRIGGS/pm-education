@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS pm_education_enrollments (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_student (citizenid, status),
+    UNIQUE KEY uq_student_course (citizenid, institution_id, course_id),
     KEY idx_course (institution_id, course_id)
 );
 
