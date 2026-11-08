@@ -26,7 +26,29 @@ end
 local function getCourse(institutionId, courseId)
     if type(institutionId) ~= 'string' or type(courseId) ~= 'string' then return end
     local institution = Config.Institutions[institutionId]
-    return institution and institution.enabled ~= false and institution.courses and institution.courses[courseId], institution
+    local base = institution and institution.enabled ~= false and institution.courses and institution.courses[courseId]
+    if not base then return nil, institution end
+    -- Config remains the allowlist for offered courses and financial settings.
+    -- Published course catalog revisions may override only curriculum-facing fields.
+    local ok, row = pcall(MySQL.single.await,
+        "SELECT payload_json FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'course' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1",
+        {institutionId, courseId})
+    if not ok then
+        print('[pm-education] Course catalog query failed for ' .. institutionId .. '/' .. courseId)
+        return nil, institution
+    end
+    if not row then return base, institution end
+    local decoded, payload = pcall(json.decode, row.payload_json)
+    if not decoded or type(payload) ~= 'table' or type(payload.label) ~= 'string' or
+        type(payload.passPercent) ~= 'number' or payload.passPercent < 0 or payload.passPercent > 100 then
+        print('[pm-education] Invalid published course catalog payload for ' .. institutionId .. '/' .. courseId)
+        return nil, institution
+    end
+    local course = {}
+    for key, value in pairs(base) do course[key] = value end
+    course.label = payload.label
+    course.passPercent = payload.passPercent
+    return course, institution
 end
 
 local function nearInteraction(src, institutionId, kind, courseId)
