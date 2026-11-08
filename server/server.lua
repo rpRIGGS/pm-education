@@ -424,6 +424,10 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         activeExams[src] = nil
         return notify(src, 'Assigned curriculum unavailable. No fee charged.', 'error')
     end
+    if course.requireWritten == false then
+        activeExams[src] = nil
+        return notify(src, 'This course does not require a written examination.', 'error')
+    end
     local selectedQuestions, revisionId, catalogError = getQuestions(institutionId, courseId, record.id)
     if catalogError or not selectedQuestions or #selectedQuestions == 0 then
         activeExams[src] = nil
