@@ -54,3 +54,10 @@ Sandy Shores University remains disabled until its real site and roles are appro
 - Instructor-only staff should not see the curriculum editor; credential administrators still require server authorization.
 - New course IDs created in the editor are not automatically offered: the corresponding runtime course must be configured and authorized before publication.
 - Do not treat existing older notes about payment integration as current implementation without comparing the runtime.
+
+## Frontend audit follow-up (November 2026)
+- Instructor roster and student enrollment menus now resolve the **assigned curriculum revision** rather than a newly published course label.
+- Instructor-only jobs do not receive the credential-status or curriculum-editor actions in their menus. Server-side authorization remains mandatory.
+- Student payment, credential, and instructor practical-history database failures must show error feedback, not empty-state messages.
+- A course with `requireWritten=false` displays "Not required" rather than "Question bank not configured".
+- Final authorization and data-consistency verification still requires a live QBCore/ox_lib/qb-target staging environment.
