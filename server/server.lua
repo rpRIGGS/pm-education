@@ -90,6 +90,16 @@ local function refreshCompletion(enrollmentId, institutionId, courseId)
         MySQL.update.await(
             "UPDATE pm_education_enrollments SET status = 'completed' WHERE id = ? AND institution_id = ? AND course_id = ? AND status IN ('enrolled','in_progress')",
             { enrollmentId, institutionId, courseId })
+        if course.credentialId then
+            local record = MySQL.single.await(
+                "SELECT citizenid, status FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND course_id = ?",
+                { enrollmentId, institutionId, courseId })
+            if record and record.status == 'completed' then
+                MySQL.insert.await(
+                    "INSERT INTO pm_education_credentials (enrollment_id, citizenid, institution_id, credential_id, credential_label) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
+                    { enrollmentId, record.citizenid, institutionId, course.credentialId, course.credentialLabel or course.credentialId })
+            end
+        end
     end
     return progress
 end
@@ -279,4 +289,21 @@ lib.callback.register('pm-education:server:myCourseProgress', function(src, inst
     local progress = courseProgress(enrollmentId, course)
     progress.enrollmentStatus = record.status
     return progress
+end)
+
+-- Read-only verification: no license, rank, job or government authorization is granted.
+exports('HasCredential', function(citizenid, credentialId)
+    if type(citizenid) ~= 'string' or type(credentialId) ~= 'string' then return false end
+    local row = MySQL.single.await(
+        "SELECT id FROM pm_education_credentials WHERE citizenid = ? AND credential_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
+        { citizenid, credentialId })
+    return row ~= nil
+end)
+
+lib.callback.register('pm-education:server:myCredentials', function(src)
+    local _, citizenid = playerFor(src)
+    if not citizenid then return {} end
+    return MySQL.query.await(
+        'SELECT id, institution_id, credential_id, credential_label, status, issued_at, expires_at FROM pm_education_credentials WHERE citizenid = ? ORDER BY id DESC LIMIT 100',
+        { citizenid }) or {}
 end)
