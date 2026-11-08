@@ -231,11 +231,10 @@ end
             description='Stable ID: '..requirement.id,
             onSelect=function()
                 local input=lib.inputDialog('Edit practical requirement',{
-                    {type='input',label='Stable ID',required=true,default=requirement.id,max=80,disabled=true},
-                    {type='input',label='Evaluation title',required=true,default=requirement.label,max=160}
+                    {type='input',label='Evaluation title (ID: '..requirement.id..')',required=true,default=requirement.label,max=160}
                 })
                 if not input then return end
-                payload.practicalRequirements[selected].label=input[2]
+                payload.practicalRequirements[selected].label=input[1]
                 editCourse(institutionId,record)
             end}
     end
