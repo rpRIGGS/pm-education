@@ -129,6 +129,9 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     local decoded, payload = pcall(json.decode, row.payload_json)
     if not decoded or not validPayload(row.content_type, payload) then return false end
     if row.content_type == 'exam' and #payload.questions == 0 then return false end
+    if row.content_type == 'exam' and not (Config.Institutions[institutionId].courses or {})[row.content_key] then
+        return false -- An exam must be attached to an existing offered course.
+    end
     -- Require an audit actor and institution boundary on every mutation.
     local ok, changed = pcall(MySQL.update.await,
         "UPDATE pm_education_catalog SET status = 'published', published_at = NOW() WHERE id = ? AND institution_id = ? AND status = 'draft' AND NOT EXISTS (SELECT 1 FROM (SELECT id FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ? AND status = 'published') AS active_revision)",
