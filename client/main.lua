@@ -181,9 +181,18 @@ local function showExaminer(institutionId, examiner)
 end
 
 local function spawnInteraction(point, callback)
+    if not point or type(point.model) ~= 'string' or not point.coords then
+        print('[pm-education] Skipping unconfigured education NPC')
+        return
+    end
     local model = joaat(point.model)
     lib.requestModel(model)
-    local ped = CreatePed(4, model, point.coords.x, point.coords.y, point.coords.z - 1.0, point.coords.w, false, true)
+    local ped = CreatePed(4, model, point.coords.x, point.coords.y, point.coords.z - 1.0, point.coords.w or 0.0, false, true)
+    if not ped or ped == 0 then
+        SetModelAsNoLongerNeeded(model)
+        print('[pm-education] Failed to create education NPC for ' .. tostring(point.label))
+        return
+    end
     SetEntityAsMissionEntity(ped, true, true)
     FreezeEntityPosition(ped, true)
     SetEntityInvincible(ped, true)
