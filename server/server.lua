@@ -47,10 +47,18 @@ local function enrollment(citizenid, institutionId, courseId)
     )
 end
 
+local function paymentMoneyType()
+    local moneyType = Config.Payment and Config.Payment.moneyType or 'cash'
+    if moneyType ~= 'cash' and moneyType ~= 'bank' then return nil end
+    return moneyType
+end
+
 local function charge(player, amount, reason)
     if type(amount) ~= 'number' or amount < 0 or amount % 1 ~= 0 then return false end
+    local moneyType = paymentMoneyType()
+    if not moneyType then return false end
     if amount == 0 then return true end
-    return player.Functions.RemoveMoney('cash', amount, reason)
+    return player.Functions.RemoveMoney(moneyType, amount, reason)
 end
 
 
@@ -58,9 +66,11 @@ end
 -- A pending row is created before money moves, and uncertain failures remain visible.
 local function paymentStart(player, citizenid, institutionId, courseId, enrollmentId, paymentType, amount)
     if type(amount) ~= 'number' or amount < 0 or amount % 1 ~= 0 then return nil, 'Invalid fee configuration' end
+    local moneyType = paymentMoneyType()
+    if not moneyType then return nil, 'Invalid payment method configuration' end
     local ok, paymentId = pcall(MySQL.insert.await,
-        'INSERT INTO pm_education_payments (citizenid, institution_id, course_id, enrollment_id, payment_type, amount) VALUES (?, ?, ?, ?, ?, ?)',
-        { citizenid, institutionId, courseId, enrollmentId, paymentType, amount })
+        'INSERT INTO pm_education_payments (citizenid, institution_id, course_id, enrollment_id, payment_type, amount, money_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        { citizenid, institutionId, courseId, enrollmentId, paymentType, amount, moneyType })
     if not ok or not paymentId then return nil, 'Payment ledger unavailable' end
     if not charge(player, amount, 'PM Education ' .. paymentType) then
         pcall(MySQL.update.await, "UPDATE pm_education_payments SET status = 'failed', details = 'Insufficient cash or debit rejected' WHERE id = ?", { paymentId })
@@ -69,7 +79,7 @@ local function paymentStart(player, citizenid, institutionId, courseId, enrollme
     local marked, changed = pcall(MySQL.update.await, "UPDATE pm_education_payments SET status = 'charged' WHERE id = ?", { paymentId })
     if not marked or not changed or changed < 1 then
         -- Do not debit again: a ledger update failure leaves a potentially charged row.
-        local returned = amount == 0 or player.Functions.AddMoney('cash', amount, 'PM Education Payment Recovery')
+        local returned = amount == 0 or player.Functions.AddMoney(moneyType, amount, 'PM Education Payment Recovery')
         pcall(MySQL.update.await,
             'UPDATE pm_education_payments SET status = ?, details = ? WHERE id = ?',
             { returned and 'refunded' or 'refund_failed', 'Could not confirm charged ledger state', paymentId })
@@ -88,7 +98,7 @@ local function paymentComplete(paymentId, enrollmentId)
 end
 
 local function paymentRefund(player, paymentId, amount, details)
-    local refunded = amount == 0 or player.Functions.AddMoney('cash', amount, 'PM Education Refund')
+    local refunded = amount == 0 or player.Functions.AddMoney(paymentMoneyType(), amount, 'PM Education Refund')
     pcall(MySQL.update.await,
         'UPDATE pm_education_payments SET status = ?, details = ? WHERE id = ?',
         { refunded and 'refunded' or 'refund_failed', details, paymentId })
