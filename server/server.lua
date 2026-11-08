@@ -319,7 +319,11 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
         if answers[index] == question.correct then correct = correct + 1 end
     end
     local score = math.floor(correct * 100 / #answerKey)
-    local passed = score >= (course.passPercent or 70)
+    local threshold = tonumber(course.passPercent)
+    if not threshold or threshold < 0 or threshold > 100 then
+        return notify(src, 'Invalid exam passing threshold configuration.', 'error')
+    end
+    local passed = score >= threshold
     local ok, saved = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_attempts (enrollment_id, citizenid, score_percent, passed, answers_json) VALUES (?, ?, ?, ?, ?)',
         {session.enrollmentId, citizenid, score, passed and 1 or 0, json.encode(answers)})
