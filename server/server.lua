@@ -47,62 +47,83 @@ local function enrollment(citizenid, institutionId, courseId)
     )
 end
 
-local function paymentMoneyType()
-    local moneyType = Config.Payment and Config.Payment.moneyType or 'cash'
-    if moneyType ~= 'cash' and moneyType ~= 'bank' then return nil end
-    return moneyType
+local function validPaymentMethod(method)
+    return (method == 'cash' or method == 'bank') and Config.Payment
+        and Config.Payment.allowedMethods and Config.Payment.allowedMethods[method] == true
 end
 
-local function charge(player, amount, reason)
-    if type(amount) ~= 'number' or amount < 0 or amount % 1 ~= 0 then return false end
-    local moneyType = paymentMoneyType()
-    if not moneyType then return false end
+local function charge(player, amount, reason, method)
+    if not validPaymentMethod(method) or type(amount) ~= 'number' or amount < 0 or amount % 1 ~= 0 then return false end
     if amount == 0 then return true end
-    return player.Functions.RemoveMoney(moneyType, amount, reason)
+    return player.Functions.RemoveMoney(method, amount, reason) == true
 end
 
+local function societyAccount(institutionId)
+    local institution = Config.Institutions[institutionId]
+    local name = institution and institution.society
+    if type(name) ~= 'string' or name == '' or GetResourceState('qb-banking') ~= 'started' then return nil end
+    local ok, account = pcall(function() return exports['qb-banking']:GetAccount(name) end)
+    if not ok or not account then return nil end
+    return name
+end
 
--- Payment ledger is authoritative for reconciliation; cash removal is still QBCore.
--- A pending row is created before money moves, and uncertain failures remain visible.
-local function paymentStart(player, citizenid, institutionId, courseId, enrollmentId, paymentType, amount)
+local function paymentStatus(paymentId, status, details)
+    local ok, changed = pcall(MySQL.update.await,
+        'UPDATE pm_education_payments SET status = ?, details = ? WHERE id = ?',
+        { status, details, paymentId })
+    return ok and changed and changed > 0
+end
+
+local function paymentRefund(player, paymentId, amount, method, details)
+    local refunded = amount == 0 or player.Functions.AddMoney(method, amount, 'PM Education Refund') == true
+    paymentStatus(paymentId, refunded and 'refunded' or 'refund_failed', details)
+    return refunded
+end
+
+local function paymentStart(player, citizenid, institutionId, courseId, enrollmentId, paymentType, amount, method)
+    if not validPaymentMethod(method) then return nil, 'Select cash or bank' end
     if type(amount) ~= 'number' or amount < 0 or amount % 1 ~= 0 then return nil, 'Invalid fee configuration' end
-    local moneyType = paymentMoneyType()
-    if not moneyType then return nil, 'Invalid payment method configuration' end
+    local account = societyAccount(institutionId)
+    if not account then return nil, 'Institution society account unavailable in qb-banking' end
     local ok, paymentId = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_payments (citizenid, institution_id, course_id, enrollment_id, payment_type, amount, money_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        { citizenid, institutionId, courseId, enrollmentId, paymentType, amount, moneyType })
+        { citizenid, institutionId, courseId, enrollmentId, paymentType, amount, method })
     if not ok or not paymentId then return nil, 'Payment ledger unavailable' end
-    if not charge(player, amount, 'PM Education ' .. paymentType) then
-        pcall(MySQL.update.await, "UPDATE pm_education_payments SET status = 'failed', details = 'Insufficient cash or debit rejected' WHERE id = ?", { paymentId })
-        return nil, 'Insufficient cash'
+    if not charge(player, amount, 'PM Education ' .. paymentType, method) then
+        paymentStatus(paymentId, 'failed', 'Player debit rejected')
+        return nil, 'Insufficient funds or payment rejected'
     end
-    local marked, changed = pcall(MySQL.update.await, "UPDATE pm_education_payments SET status = 'charged' WHERE id = ?", { paymentId })
-    if not marked or not changed or changed < 1 then
-        -- Do not debit again: a ledger update failure leaves a potentially charged row.
-        local returned = amount == 0 or player.Functions.AddMoney(moneyType, amount, 'PM Education Payment Recovery')
-        pcall(MySQL.update.await,
-            'UPDATE pm_education_payments SET status = ?, details = ? WHERE id = ?',
-            { returned and 'refunded' or 'refund_failed', 'Could not confirm charged ledger state', paymentId })
-        return nil, 'Payment processing unavailable; check payment ledger'
+    if not paymentStatus(paymentId, 'charged', 'Player debit accepted') then
+        paymentRefund(player, paymentId, amount, method, 'Could not record debit')
+        return nil, 'Payment processing error; review receipt'
     end
     return paymentId
 end
 
-local function paymentComplete(paymentId, enrollmentId)
-    local ok, changed = pcall(MySQL.update.await,
-        "UPDATE pm_education_payments SET status = 'completed', enrollment_id = COALESCE(?, enrollment_id) WHERE id = ? AND status = 'charged'",
-        { enrollmentId, paymentId })
-    if not ok or not changed or changed < 1 then
-        print(('[pm-education] Payment #%s requires reconciliation after successful operation'):format(paymentId))
+local function paymentComplete(paymentId, enrollmentId, institutionId, amount)
+    -- The society credit is made exactly once in this server execution path.
+    -- Cross-resource credits are not atomic; an uncertain result is NOT retried.
+    local account = societyAccount(institutionId)
+    if not account then
+        paymentStatus(paymentId, 'charged', 'Society account missing; manual reconciliation required')
+        return false
     end
-end
-
-local function paymentRefund(player, paymentId, amount, details)
-    local refunded = amount == 0 or player.Functions.AddMoney(paymentMoneyType(), amount, 'PM Education Refund')
-    pcall(MySQL.update.await,
-        'UPDATE pm_education_payments SET status = ?, details = ? WHERE id = ?',
-        { refunded and 'refunded' or 'refund_failed', details, paymentId })
-    return refunded
+    if amount > 0 then
+        local ok, credited = pcall(function()
+            return exports['qb-banking']:AddMoney(account, amount, 'PM Education payment #' .. paymentId)
+        end)
+        if not ok or not credited then
+            paymentStatus(paymentId, 'charged', 'Society credit failed or uncertain; reconcile qb-banking statements')
+            return false
+        end
+    end
+    local ok, changed = pcall(MySQL.update.await,
+        "UPDATE pm_education_payments SET status = 'completed', enrollment_id = COALESCE(?, enrollment_id), details = ? WHERE id = ? AND status = 'charged'",
+        { enrollmentId, 'Society credited: ' .. account, paymentId })
+    if not ok or not changed or changed < 1 then
+        print(('[pm-education] Society credit for payment #%s needs manual ledger reconciliation; DO NOT credit again'):format(paymentId))
+    end
+    return true
 end
 
 
@@ -162,7 +183,7 @@ local function refreshCompletion(enrollmentId, institutionId, courseId)
     return progress
 end
 
-RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId)
+RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId, paymentMethod)
     local src = source
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
@@ -179,7 +200,7 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId)
         return notify(src, 'Enrollment already exists. See My Enrollments.', 'error')
     end
     local fee = course.enrollmentFee or 0
-    local paymentId, paymentError = paymentStart(player, citizenid, institutionId, courseId, nil, 'enrollment', fee)
+    local paymentId, paymentError = paymentStart(player, citizenid, institutionId, courseId, nil, 'enrollment', fee, paymentMethod)
     if not paymentId then
         enrollmentLocks[citizenid] = nil
         return notify(src, paymentError, 'error')
@@ -189,10 +210,10 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId)
         { citizenid, institutionId, courseId })
     enrollmentLocks[citizenid] = nil
     if not ok or not id then
-        local refunded = paymentRefund(player, paymentId, fee, 'Enrollment insert failed')
+        local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Enrollment insert failed')
         return notify(src, refunded and 'Enrollment failed. Payment refunded.' or 'Enrollment failed. Refund requires administrator review.', 'error')
     end
-    paymentComplete(paymentId, id)
+    paymentComplete(paymentId, id, institutionId, fee)
     notify(src, ('Enrollment #%s created.'):format(id), 'success')
 end)
 
@@ -237,16 +258,16 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         questions[index] = { question = question.question, answers = question.answers }
     end
     local fee = course.examFee or 0
-    local paymentId, paymentError = paymentStart(player, citizenid, institutionId, courseId, record.id, 'exam', fee)
+    local paymentId, paymentError = paymentStart(player, citizenid, institutionId, courseId, record.id, 'exam', fee, paymentMethod)
     if not paymentId then return notify(src, paymentError, 'error') end
     activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId }
     local updated = pcall(MySQL.update.await, "UPDATE pm_education_enrollments SET status = 'in_progress' WHERE id = ? AND status = 'enrolled'", {record.id})
     if not updated then
         activeExams[src] = nil
-        local refunded = paymentRefund(player, paymentId, fee, 'Exam startup failed')
+        local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam startup failed')
         return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam startup failed. Refund requires administrator review.', 'error')
     end
-    paymentComplete(paymentId, record.id)
+    paymentComplete(paymentId, record.id, institutionId, fee)
     TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, questions)
 end)
 
