@@ -34,3 +34,6 @@ The console importer stores a source fingerprint for each development-authored r
 
 ## Published course and credential integration
 For existing configured courses only, newly published course catalog records override course label and pass percentage in the server's course lookup; fee settings, practical requirements and credential identifiers remain controlled by `config.lua`. Newly awarded credentials use the label from the matching published credential catalog revision if available. Existing credentials are never relabeled. Publication retires the previous published revision in the same SQL transaction as activating its replacement and writing the publication audit. This does not yet guarantee race-free publication by concurrent administrators, and requires live concurrency testing.
+
+## Additional transaction hardening
+Draft save, explicit retirement, and publication now pair content changes with audit inserts in SQL transactions. These transaction calls still require concurrency and affected-row verification in a running FiveM/oxmysql environment; transaction success alone does not prove the targeted row changed. Course publication is limited to course IDs present in the institution configuration, preventing drafts for unoffered courses from appearing operational.
