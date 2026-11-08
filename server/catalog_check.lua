@@ -139,6 +139,13 @@ local function audit(institutionId)
         report(problems, 'ERROR', 'ORPHAN_EXAM_ENROLLMENT_REVISIONS',
             institutionId .. ': ' .. orphanExams .. ' enrollments')
     end
+    local mismatchedAttempts = MySQL.scalar.await(
+        "SELECT COUNT(*) FROM pm_education_attempts a JOIN pm_education_enrollments e ON a.enrollment_id = e.id WHERE e.institution_id = ? AND e.exam_revision_id IS NOT NULL AND a.passed = 1 AND (a.catalog_revision_id IS NULL OR a.catalog_revision_id <> e.exam_revision_id)",
+        {institutionId})
+    if tonumber(mismatchedAttempts or 0) > 0 then
+        report(problems, 'WARN', 'PASSED_ATTEMPTS_OTHER_EXAM_REVISION',
+            institutionId .. ': ' .. mismatchedAttempts .. ' historical attempts; not counted for pinned exam completion')
+    end
     local orphanAttempts = MySQL.scalar.await(
         'SELECT COUNT(*) FROM pm_education_attempts a LEFT JOIN pm_education_catalog c ON a.catalog_revision_id = c.id WHERE a.catalog_revision_id IS NOT NULL AND c.id IS NULL AND a.enrollment_id IN (SELECT id FROM pm_education_enrollments WHERE institution_id = ?)',
         {institutionId})
