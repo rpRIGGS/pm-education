@@ -98,10 +98,19 @@ local function showMyCredentials()
 end
 
 local function choosePaymentMethod(label, amount)
-    if amount == 0 then return 'cash' end
+    local methods = Config.Payment and Config.Payment.allowedMethods or {}
+    if amount == 0 then
+        if methods.cash then return 'cash' end
+        if methods.bank then return 'bank' end
+        return notify('No payment methods are configured.', 'error')
+    end
+    local options = {}
+    if methods.cash then options[#options + 1] = {value = 'cash', label = 'Cash'} end
+    if methods.bank then options[#options + 1] = {value = 'bank', label = 'Bank'} end
+    if #options == 0 then return notify('No payment methods are configured.', 'error') end
     local result = lib.inputDialog(label, {{
         type = 'select', label = ('Payment method - $%d'):format(amount), required = true,
-        options = {{ value = 'cash', label = 'Cash' }, { value = 'bank', label = 'Bank' }}
+        options = options
     }})
     return result and result[1] or nil
 end
