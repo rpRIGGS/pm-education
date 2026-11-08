@@ -142,3 +142,68 @@ AddEventHandler('playerDropped', function()
     local _, citizenid = playerFor(source)
     if citizenid then enrollmentLocks[citizenid] = nil end
 end)
+
+-- Instructor management is always validated on the server.
+local function instructorAuthorized(src, institutionId)
+ local institution = Config.Institutions[institutionId]
+ if not institution then return false end
+ local player = QBCore.Functions.GetPlayer(src)
+ if not player then return false end
+ local job = player.PlayerData.job
+ local rule = job and institution.staffJobs and institution.staffJobs[job.name]
+ if not rule or (tonumber(job.grade and job.grade.level) or -1) < (rule.minGrade or 0) then return false end
+ local ped = GetPlayerPed(src)
+ if ped == 0 then return false end
+ local pos = GetEntityCoords(ped)
+ for _, desk in ipairs(institution.management or {}) do
+  if #(pos - vector3(desk.coords.x, desk.coords.y, desk.coords.z)) <= 5.0 then return true end
+ end
+ return false
+end
+
+lib.callback.register('pm-education:server:instructorStudents', function(src, institutionId)
+ if not instructorAuthorized(src, institutionId) then return {} end
+ local rows = MySQL.query.await(
+  "SELECT id, citizenid, course_id, status FROM pm_education_enrollments WHERE institution_id = ? AND status IN ('enrolled','in_progress') ORDER BY id DESC LIMIT 100",
+  {institutionId}) or {}
+ local institution = Config.Institutions[institutionId]
+ for _, row in ipairs(rows) do
+  row.courseLabel = institution.courses[row.course_id] and institution.courses[row.course_id].label or row.course_id
+ end
+ return rows
+end)
+
+lib.callback.register('pm-education:server:instructorResults', function(src, institutionId, enrollmentId)
+ if not instructorAuthorized(src, institutionId) or type(enrollmentId) ~= 'number' then return {} end
+ local record = MySQL.single.await('SELECT id FROM pm_education_enrollments WHERE id = ? AND institution_id = ?', {enrollmentId, institutionId})
+ if not record then return {} end
+ return MySQL.query.await(
+  'SELECT requirement_id, result, notes, examiner_citizenid, recorded_at FROM pm_education_practical_results WHERE enrollment_id = ? ORDER BY id DESC LIMIT 100',
+  {enrollmentId}) or {}
+end)
+
+RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, enrollmentId, requirementId, result, notes)
+ local src = source
+ if not instructorAuthorized(src, institutionId) then return end
+ if type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 or
+    type(requirementId) ~= 'string' or
+    (result ~= 'pass' and result ~= 'fail' and result ~= 'incomplete') or
+    type(notes) ~= 'string' or #notes > 1000 then return end
+ local record = MySQL.single.await(
+  "SELECT citizenid, course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND status IN ('enrolled','in_progress')",
+  {enrollmentId, institutionId})
+ if not record then return notify(src, 'Student is not actively enrolled.', 'error') end
+ local course = Config.Institutions[institutionId].courses[record.course_id]
+ local valid = false
+ for _, requirement in ipairs(course and course.practicalRequirements or {}) do
+  if requirement.id == requirementId then valid = true break end
+ end
+ if not valid then return end
+ local examiner = QBCore.Functions.GetPlayer(src)
+ if not examiner then return end
+ local ok, inserted = pcall(MySQL.insert.await,
+  'INSERT INTO pm_education_practical_results (enrollment_id, citizenid, institution_id, course_id, requirement_id, result, notes, examiner_citizenid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  {enrollmentId, record.citizenid, institutionId, record.course_id, requirementId, result, notes, examiner.PlayerData.citizenid})
+ if not ok or not inserted then return notify(src, 'Evaluation could not be saved.', 'error') end
+ notify(src, 'Instructor evaluation recorded.', 'success')
+end)
