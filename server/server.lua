@@ -200,10 +200,10 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         return notify(src, 'Enrollment already exists. See My Enrollments.', 'error')
     end
     local fee = course.enrollmentFee or 0
-    local paymentId, paymentError = paymentStart(player, citizenid, institutionId, courseId, nil, 'enrollment', fee, paymentMethod)
-    if not paymentId then
+    local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, nil, 'enrollment', fee, paymentMethod)
+    if not paid or not paymentId then
         enrollmentLocks[citizenid] = nil
-        return notify(src, paymentError, 'error')
+        return notify(src, paid and paymentError or 'Payment processing failed; review ledger before retrying.', 'error')
     end
     local ok, id = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id) VALUES (?, ?, ?)',
