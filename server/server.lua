@@ -221,12 +221,16 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
     local ok, id = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id) VALUES (?, ?, ?)',
         { citizenid, institutionId, courseId })
-    enrollmentLocks[citizenid] = nil
     if not ok or not id then
+        enrollmentLocks[citizenid] = nil
         local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Enrollment insert failed')
         return notify(src, refunded and 'Enrollment failed. Payment refunded.' or 'Enrollment failed. Refund requires administrator review.', 'error')
     end
-    paymentComplete(paymentId, id, institutionId, fee)
+    local completedOk, credited = pcall(paymentComplete, paymentId, id, institutionId, fee)
+    enrollmentLocks[citizenid] = nil
+    if not completedOk or not credited then
+        return notify(src, ('Enrollment #%s created; payment requires administrator reconciliation.'):format(id), 'error')
+    end
     notify(src, ('Enrollment #%s created.'):format(id), 'success')
 end)
 
