@@ -33,6 +33,21 @@ end
 RegisterNetEvent('pm-education:client:exam', openExam)
 RegisterNetEvent('pm-education:client:notify', notify)
 
+local function showPaymentReceipts(institutionId)
+    local receipts = lib.callback.await('pm-education:server:myPayments', false, institutionId) or {}
+    local options = {}
+    for _, receipt in ipairs(receipts) do
+        options[#options + 1] = {
+            title = ('Receipt #%s - %s $%s'):format(receipt.id, receipt.payment_type, receipt.amount),
+            description = ('%s | %s | %s'):format(receipt.status, receipt.money_type, receipt.created_at),
+            disabled = true
+        }
+    end
+    if #options == 0 then options[1] = { title = 'No payments recorded', disabled = true } end
+    lib.registerContext({ id = 'pm_education_receipts', title = 'Payment Receipts', options = options })
+    lib.showContext('pm_education_receipts')
+end
+
 local function showEnrollments(institutionId)
     local records = lib.callback.await('pm-education:server:myEnrollments', false, institutionId)
     if not records then return notify('Unable to load enrollments.', 'error') end
@@ -100,6 +115,10 @@ local function showAdmissions(institutionId)
     options[#options + 1] = {
         title = 'My Credentials',
         onSelect = showMyCredentials
+    }
+    options[#options + 1] = {
+        title = 'Payment Receipts',
+        onSelect = function() showPaymentReceipts(institutionId) end
     }
     lib.registerContext({ id = 'pm_education_admissions', title = institution.label .. ' Admissions', options = options })
     lib.showContext('pm_education_admissions')
