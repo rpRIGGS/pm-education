@@ -54,6 +54,16 @@ editExam=function(institutionId, record)
             if updated then payload.questions[index]=updated editExam(institutionId,record) end
         end}
     end
+    options[#options+1]={title='Remove a question',onSelect=function()
+        if #payload.questions == 0 then return end
+        local choices={}
+        for i,q in ipairs(payload.questions) do choices[#choices+1]={value=i,label=('Question %d: %s'):format(i,q.question:sub(1,80))} end
+        local input=lib.inputDialog('Remove question',{{type='select',label='Question',required=true,options=choices}})
+        if not input then return end
+        if lib.alertDialog({header='Remove question?',content='This changes the unsaved draft only.',cancel=true})~='confirm' then return end
+        table.remove(payload.questions,tonumber(input[1]))
+        editExam(institutionId,record)
+    end}
     options[#options+1]={title='Save draft',onSelect=function()
         local ok=call('catalogSaveDraft',institutionId,record.id,payload)
         lib.notify({description=ok and 'Draft saved' or 'Save failed',type=ok and 'success' or 'error'})
