@@ -86,3 +86,14 @@ review those individually rather than overwriting historical records.
 
 The published credential label is now taken from the student's enrolled course
 revision rather than the newest credential-catalog label.
+
+## Authoring transaction and credential consistency
+
+- Force an in-game draft audit insert failure: the draft insert must roll
+  back, and a subsequent successful retry must create one audited revision.
+- Force a development template import audit insert failure: the imported draft
+  must roll back; no unaudited catalog row may remain.
+- Confirm completion uses the credential label from the student's enrolled
+  curriculum even if a later credential revision changes its display label.
+- Confirm catalog audit reports credentials without a matching enrollment
+  and duplicated enrollment/credential awards.
