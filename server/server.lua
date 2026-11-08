@@ -582,7 +582,7 @@ lib.callback.register('pm-education:server:myCourseProgress', function(src, inst
         'SELECT course_id, status FROM pm_education_enrollments WHERE id = ? AND citizenid = ? AND institution_id = ?',
         { enrollmentId, citizenid, institutionId })
     if not record then return nil end
-    local course = getCourse(institutionId, record.course_id)
+    local course = getCourse(institutionId, record.course_id, enrollmentId)
     if not course then return nil end
     local progress = courseProgress(enrollmentId, course, institutionId, record.course_id)
     progress.enrollmentStatus = record.status
@@ -869,7 +869,7 @@ local function courseProgress(enrollmentId, course, institutionId, courseId)
 end
 
 local function refreshCompletion(enrollmentId, institutionId, courseId)
-    local course = getCourse(institutionId, courseId)
+    local course = getCourse(institutionId, courseId, enrollmentId)
     if not course then return end
     local progress = courseProgress(enrollmentId, course, institutionId, courseId)
     if progress.complete then
@@ -1169,7 +1169,7 @@ lib.callback.register('pm-education:server:courseProgress', function(src, instit
         'SELECT course_id, status FROM pm_education_enrollments WHERE id = ? AND institution_id = ?',
         { enrollmentId, institutionId })
     if not record then return nil end
-    local course = getCourse(institutionId, record.course_id)
+    local course = getCourse(institutionId, record.course_id, enrollmentId)
     if not course then return nil end
     local progress = courseProgress(enrollmentId, course, institutionId, record.course_id)
     progress.enrollmentStatus = record.status
@@ -1185,7 +1185,7 @@ lib.callback.register('pm-education:server:myCourseProgress', function(src, inst
         'SELECT course_id, status FROM pm_education_enrollments WHERE id = ? AND citizenid = ? AND institution_id = ?',
         { enrollmentId, citizenid, institutionId })
     if not record then return nil end
-    local course = getCourse(institutionId, record.course_id)
+    local course = getCourse(institutionId, record.course_id, enrollmentId)
     if not course then return nil end
     local progress = courseProgress(enrollmentId, course, institutionId, record.course_id)
     progress.enrollmentStatus = record.status
@@ -1472,7 +1472,7 @@ local function courseProgress(enrollmentId, course, institutionId, courseId)
 end
 
 local function refreshCompletion(enrollmentId, institutionId, courseId)
-    local course = getCourse(institutionId, courseId)
+    local course = getCourse(institutionId, courseId, enrollmentId)
     if not course then return end
     local progress = courseProgress(enrollmentId, course, institutionId, courseId)
     if progress.complete then
@@ -1772,7 +1772,7 @@ lib.callback.register('pm-education:server:courseProgress', function(src, instit
         'SELECT course_id, status FROM pm_education_enrollments WHERE id = ? AND institution_id = ?',
         { enrollmentId, institutionId })
     if not record then return nil end
-    local course = getCourse(institutionId, record.course_id)
+    local course = getCourse(institutionId, record.course_id, enrollmentId)
     if not course then return nil end
     local progress = courseProgress(enrollmentId, course, institutionId, record.course_id)
     progress.enrollmentStatus = record.status
@@ -1788,7 +1788,7 @@ lib.callback.register('pm-education:server:myCourseProgress', function(src, inst
         'SELECT course_id, status FROM pm_education_enrollments WHERE id = ? AND citizenid = ? AND institution_id = ?',
         { enrollmentId, citizenid, institutionId })
     if not record then return nil end
-    local course = getCourse(institutionId, record.course_id)
+    local course = getCourse(institutionId, record.course_id, enrollmentId)
     if not course then return nil end
     local progress = courseProgress(enrollmentId, course, institutionId, record.course_id)
     progress.enrollmentStatus = record.status
