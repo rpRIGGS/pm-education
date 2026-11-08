@@ -126,3 +126,19 @@ From Instructor Management → student → Manage credentials, an authorized adm
 The `HasCredential` export rejects suspended/revoked/expired credentials. **SQL is authoritative**; any future printed qb-inventory certificate is only a representation.
 
 Test status changes and audit persistence on the development database before live use. The current design has no multi-server distributed lock and has not undergone concurrency testing.
+
+## Deployment placeholders: institution enable switches
+
+`Config.Institutions.sandy_university.enabled = false` deliberately prevents the inherited example NPCs from spawning. Those original coordinates are **not** Sandy Shores University and must not be treated as approved locations. When the real university facilities, course catalog and staff roles are available, configure them and change `enabled = true`.
+
+`Config.Institutions.post.enabled = true` is safe while admissions/examiners/management arrays are empty: no NPC or desk is spawned until you supply locations. Both institutions share the same education backend.
+
+### Pending user-provided data (do not block other commits)
+
+- POST academy admissions, exam and instructor desk coordinates/headings.
+- Approved POST instructor and credential administrator jobs/grades.
+- POST written questions and approved passing score.
+- Sandy Shores University building, NPC and desk coordinates; actual university curriculum.
+- Final society banking account mapping and optional qb-inventory certificate artwork.
+
+**Development rule:** implement generalized server-side workflows independently of these values; keep missing site-specific values explicitly configurable and disabled rather than inventing them.
