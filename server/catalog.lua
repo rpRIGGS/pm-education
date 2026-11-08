@@ -135,3 +135,25 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
         {catalogId, institutionId, actor, 'publish', 'Published immutable revision'})
     return true
 end)
+
+-- Retire an existing published revision before activating its replacement.
+lib.callback.register('pm-education:server:catalogRetire', function(src, institutionId, catalogId)
+    local allowed, actor = authorized(src, institutionId)
+    if not allowed or type(catalogId) ~= 'number' or catalogId % 1 ~= 0 then return false end
+    local ok, changed = pcall(MySQL.update.await,
+        "UPDATE pm_education_catalog SET status = 'retired' WHERE id = ? AND institution_id = ? AND status = 'published'",
+        {catalogId, institutionId})
+    if not ok or changed ~= 1 then return false end
+    MySQL.insert.await(
+        'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
+        {catalogId, institutionId, actor, 'retire', 'Retired published revision; historical qualifications unaffected'})
+    return true
+end)
+
+lib.callback.register('pm-education:server:catalogHistory', function(src, institutionId, catalogId)
+    if not authorized(src, institutionId) or type(catalogId) ~= 'number' or catalogId % 1 ~= 0 then return {} end
+    local ok, rows = pcall(MySQL.query.await,
+        'SELECT actor_citizenid, action, notes, recorded_at FROM pm_education_catalog_audit WHERE institution_id = ? AND catalog_id = ? ORDER BY id DESC LIMIT 100',
+        {institutionId, catalogId})
+    return ok and rows or {}
+end)
