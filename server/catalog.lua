@@ -178,6 +178,9 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
         end
         if payload.credentialId == nil then payload.credentialId = base.credentialId end
         if payload.credentialLabel == nil then payload.credentialLabel = base.credentialLabel end
+        if payload.credentialId ~= nil and payload.credentialLabel == nil then
+            payload.credentialLabel = payload.credentialId
+        end
         if not validPayload('course', payload) then return false end
     end
     local encoded = json.encode(payload)
