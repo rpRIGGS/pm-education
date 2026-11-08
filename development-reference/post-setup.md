@@ -180,3 +180,11 @@ PM Education credits `Config.Institutions[institutionId].society` using the offi
 **Account setup:** The `post` and `university` society account names are currently configured; verify those exact job accounts exist in your installed qb-banking. Society account auto-creation depends on the banking resource; this script deliberately does not fabricate an account.
 
 **Important failure boundary:** QBCore player money, qb-banking society credits, and the PM Education payment ledger are separate operations. If a society credit or ledger write is uncertain, the payment remains flagged for console reconciliation; **do not automatically repeat the society credit** or duplicate revenue. Use `pm_education_payments` and compare the payment number with qb-banking statements. This needs in-server verification with your installed banking fork.
+
+## Credential lifecycle and exam concurrency hardening
+
+Credential transitions are restricted to `active -> suspended/revoked` and `suspended -> active/revoked`. `revoked` and `expired` are terminal in the current administration workflow. The server enforces these transitions even if a client submits a crafted request.
+
+An exam session now acquires an in-memory lock **before** the first yielding enrollment/payment operation, preventing repeated start requests from charging the same connected player twice concurrently. The server checks enrollment status after payment and refunds a failed start. This lock is not a distributed transaction and does not replace integration testing or reconciliation of interrupted money transfers.
+
+**Validation checklist:** repeated exam-start events; insufficient cash and bank balances; missing qb-banking society account; enrollment SQL errors; failed society credits; reconnect during checkout; credential revocation followed by attempted suspension; legitimate suspension restoration.
