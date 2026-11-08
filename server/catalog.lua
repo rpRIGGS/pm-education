@@ -77,25 +77,33 @@ lib.callback.register('pm-education:server:catalogCreateDraft', function(src, in
     if not allowed or not validKey(key) or not validPayload(kind, payload) then return nil end
     local encoded = json.encode(payload)
     if not encoded or #encoded > 100000 then return nil end
-    local ok, result = pcall(function()
-        local latest = MySQL.scalar.await(
-            'SELECT COALESCE(MAX(revision), 0) FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ?',
-            {institutionId, kind, key})
-        local nextRevision = tonumber(latest or 0) + 1
-        local inserted = MySQL.insert.await(
-            "INSERT INTO pm_education_catalog (institution_id, content_type, content_key, revision, status, payload_json, source_kind, created_by) VALUES (?, ?, ?, ?, 'draft', ?, 'ingame', ?)",
-            {institutionId, kind, key, nextRevision, encoded, actor})
-        if not inserted then return nil end
-        MySQL.insert.await(
-            'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
-            {inserted, institutionId, actor, 'create_draft', 'Created revision ' .. nextRevision})
-        return inserted
-    end)
-    if not ok then
-        print(('[pm-education] Catalog draft insert failed for %s/%s/%s: %s'):format(institutionId, kind, key, tostring(result)))
-        return nil
+    -- A single SQL statement allocates the next revision under the unique index.
+    -- A duplicate-key collision is retried rather than exposing a partial draft.
+    for attempt=1,3 do
+        local ok, result = pcall(function()
+            local latest = MySQL.scalar.await(
+                'SELECT COALESCE(MAX(revision), 0) FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ?',
+                {institutionId, kind, key})
+            local nextRevision = tonumber(latest or 0) + 1
+            local inserted = MySQL.insert.await(
+                "INSERT INTO pm_education_catalog (institution_id, content_type, content_key, revision, status, payload_json, source_kind, created_by) VALUES (?, ?, ?, ?, 'draft', ?, 'ingame', ?)",
+                {institutionId, kind, key, nextRevision, encoded, actor})
+            if not inserted then return nil end
+            local auditOk, auditResult = pcall(MySQL.insert.await,
+                'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
+                {inserted, institutionId, actor, 'create_draft', 'Created revision ' .. nextRevision})
+            if not auditOk or not auditResult then
+                print(('[pm-education] Draft #%s created without audit; administrator review required'):format(inserted))
+            end
+            return inserted
+        end)
+        if ok and result then return result end
+        if not ok then
+            print(('[pm-education] Catalog draft attempt %d failed for %s/%s/%s: %s'):format(
+                attempt, institutionId, kind, key, tostring(result)))
+        end
     end
-    return result
+    return nil
 end)
 
 -- Save changes only to unpublished drafts; published revisions are immutable.
