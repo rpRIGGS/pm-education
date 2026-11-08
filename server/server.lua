@@ -474,7 +474,9 @@ lib.callback.register('pm-education:server:setCredentialStatus', function(src, i
             { credentialId, institutionId })
         if not record then return false, 'Credential not found' end
         if record.status == nextStatus then return false, 'Credential already has this status' end
-        if record.status == 'revoked' and nextStatus == 'active' then return false, 'Revoked credentials cannot be reinstated automatically' end
+        if record.status == 'revoked' then return false, 'Revoked credentials are terminal; new accreditation is required' end
+        if record.status == 'active' and nextStatus ~= 'suspended' and nextStatus ~= 'revoked' then return false, 'Invalid active credential transition' end
+        if record.status == 'suspended' and nextStatus ~= 'active' and nextStatus ~= 'revoked' then return false, 'Invalid suspended credential transition' end
         if record.status == 'expired' then return false, 'Expired credentials require renewal workflow' end
         local success = MySQL.transaction.await({
             {
