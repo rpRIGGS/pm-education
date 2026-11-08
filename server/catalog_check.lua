@@ -145,6 +145,20 @@ local function audit(institutionId)
         report(problems, 'ERROR', 'ORPHAN_EXAM_ENROLLMENT_REVISIONS',
             institutionId .. ': ' .. orphanExams .. ' enrollments')
     end
+    local duplicateCredentials = MySQL.scalar.await(
+        'SELECT COUNT(*) FROM (SELECT enrollment_id, credential_id FROM pm_education_credentials WHERE institution_id = ? GROUP BY enrollment_id, credential_id HAVING COUNT(*) > 1) duplicates',
+        {institutionId})
+    if tonumber(duplicateCredentials or 0) > 0 then
+        report(problems, 'ERROR', 'DUPLICATE_CREDENTIAL_AWARDS',
+            institutionId .. ': ' .. duplicateCredentials .. ' duplicated enrollment/credential pairs')
+    end
+    local credentialsWithoutEnrollment = MySQL.scalar.await(
+        'SELECT COUNT(*) FROM pm_education_credentials c LEFT JOIN pm_education_enrollments e ON c.enrollment_id = e.id AND c.institution_id = e.institution_id AND c.citizenid = e.citizenid WHERE c.institution_id = ? AND e.id IS NULL',
+        {institutionId})
+    if tonumber(credentialsWithoutEnrollment or 0) > 0 then
+        report(problems, 'ERROR', 'ORPHAN_CREDENTIAL_AWARDS',
+            institutionId .. ': ' .. credentialsWithoutEnrollment .. ' credential records')
+    end
     local mismatchedAttempts = MySQL.scalar.await(
         "SELECT COUNT(*) FROM pm_education_attempts a JOIN pm_education_enrollments e ON a.enrollment_id = e.id WHERE e.institution_id = ? AND e.exam_revision_id IS NOT NULL AND a.passed = 1 AND (a.catalog_revision_id IS NULL OR a.catalog_revision_id <> e.exam_revision_id)",
         {institutionId})
