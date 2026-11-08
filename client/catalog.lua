@@ -190,7 +190,7 @@ openCatalog=function(institutionId)
         local id=call('catalogCreateDraft',institutionId,'exam',input[1],{label=input[2],questions={}})
         if id then openRevision(institutionId,id) else lib.notify({description='Could not create examination',type='error'}) end
     end}}
-    options[#options+1]={title='Create new course',onSelect=function()
+    options[#options+1]={title='Create new course',description='New course IDs require a matching configured institution offering before publication',onSelect=function()
         local input=lib.inputDialog('New course',{{type='input',label='Internal ID',required=true,max=80},{type='input',label='Course title',required=true,max=160},{type='number',label='Passing percentage',required=true,min=0,max=100,default=80}})
         if not input then return end
         local id=call('catalogCreateDraft',institutionId,'course',input[1],{label=input[2],passPercent=input[3]})
