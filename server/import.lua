@@ -24,7 +24,10 @@ local function importOne(institution, kind, key, payload)
         -- This avoids repeatedly creating identical drafts after staff modify a draft.
         local imported=MySQL.query.await(
             "SELECT source_hash FROM pm_education_catalog WHERE institution_id=? AND content_type=? AND content_key=? AND source_kind='development'",
-            {institution,kind,key}) or {}
+            {institution,kind,key})
+        if not imported then
+            error('Development import history unavailable; refusing duplicate import')
+        end
         for _,record in ipairs(imported) do
             if record.source_hash==sourceHash then return false end
         end
