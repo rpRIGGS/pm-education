@@ -730,11 +730,22 @@ end)
 
 -- Credential administrators require a separately configured job/grade AND an institution desk.
 local function credentialAdminAuthorized(src, institutionId)
-    if not instructorAuthorized(src, institutionId) then return false end
+    if type(institutionId) ~= 'string' then return false end
     local institution = Config.Institutions[institutionId]
-    local job = QBCore.Functions.GetPlayer(src).PlayerData.job
-    local rule = institution.credentialAdminJobs and institution.credentialAdminJobs[job.name]
-    return rule ~= nil and (tonumber(job.grade and job.grade.level) or -1) >= (rule.minGrade or 0)
+    if not institution or institution.enabled == false then return false end
+    local player = QBCore.Functions.GetPlayer(src)
+    local job = player and player.PlayerData.job
+    local rule = job and institution.credentialAdminJobs and institution.credentialAdminJobs[job.name]
+    if not rule or (tonumber(job.grade and job.grade.level) or -1) < (rule.minGrade or 0) then return false end
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then return false end
+    local pos = GetEntityCoords(ped)
+    for _, desk in ipairs(institution.management or {}) do
+        if desk.coords and #(pos - vector3(desk.coords.x, desk.coords.y, desk.coords.z)) <= 5.0 then
+            return true
+        end
+    end
+    return false
 end
 
 lib.callback.register('pm-education:server:adminCredentials', function(src, institutionId, enrollmentId)
