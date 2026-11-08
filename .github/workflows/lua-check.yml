@@ -27,6 +27,28 @@ jobs:
               echo "Checking $file"
               luac5.4 -p "$file"
             done
+      - name: Detect duplicate event and callback registrations
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, collections, sys
+          files = list(pathlib.Path('server').glob('*.lua'))
+          patterns = [
+              re.compile(r"RegisterNetEvent\s*\(\s*['\"]([^'\"]+)['\"]"),
+              re.compile(r"lib\.callback\.register\s*\(\s*['\"]([^'\"]+)['\"]"),
+          ]
+          found = collections.defaultdict(list)
+          for file in files:
+              source = file.read_text(encoding='utf-8')
+              for pattern in patterns:
+                  for match in pattern.finditer(source):
+                      found[match.group(1)].append(str(file))
+          duplicate = {name: locations for name, locations in found.items() if len(locations) > 1}
+          for name, locations in sorted(duplicate.items()):
+              print(f'Duplicate server handler {name}: {locations}', file=sys.stderr)
+          if duplicate:
+              sys.exit(1)
+          print(f'Checked {len(found)} distinct server event/callback registrations')
+          PY
       - name: Verify resource entrypoints
         run: |
           test -f fxmanifest.lua
