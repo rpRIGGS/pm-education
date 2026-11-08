@@ -347,6 +347,15 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         enrollmentLocks[citizenid] = nil
         return notify(src, 'Enrollment already exists. See My Enrollments.', 'error')
     end
+    -- Refuse to enroll into an unfulfillable written course. An exam
+    -- published later would not be pinned to this enrollment.
+    if course.requireWritten == true then
+        local questionsOk, questions, _, questionError = pcall(getQuestions, institutionId, courseId)
+        if not questionsOk or questionError or type(questions) ~= 'table' or #questions == 0 then
+            enrollmentLocks[citizenid] = nil
+            return notify(src, 'This course has no available approved written examination. No fee charged.', 'error')
+        end
+    end
     local fee = course.enrollmentFee or 0
     local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, nil, 'enrollment', fee, paymentMethod)
     if not paid or not paymentId then
