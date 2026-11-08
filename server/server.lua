@@ -285,21 +285,9 @@ local function refreshCompletion(enrollmentId, institutionId, courseId)
     if not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress' and
         record.status ~= 'completed') then return progress end
 
-    local label
-    if course.credentialId then
-        label = course.credentialLabel or course.credentialId
-        local catalogRow = MySQL.single.await(
-            "SELECT payload_json FROM pm_education_catalog WHERE institution_id = ? AND content_type = 'credential' AND content_key = ? AND status = 'published' ORDER BY revision DESC LIMIT 1",
-            {institutionId, course.credentialId})
-        if catalogRow then
-            local decoded, credential = pcall(json.decode, catalogRow.payload_json)
-            if not decoded or type(credential) ~= 'table' or type(credential.label) ~= 'string' or
-                #credential.label < 1 or #credential.label > 160 then
-                error('Published credential payload invalid; enrollment not completed')
-            end
-            label = credential.label
-        end
-    end
+    -- Credential display is part of the enrolled curriculum revision.
+    -- Do not relabel a historical qualification using today's credential catalog.
+    local label = course.credentialId and (course.credentialLabel or course.credentialId) or nil
 
     local statements = {}
     if course.credentialId then
