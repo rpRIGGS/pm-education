@@ -23,3 +23,20 @@ CREATE TABLE IF NOT EXISTS pm_education_attempts (
     KEY idx_enrollment (enrollment_id),
     KEY idx_citizen (citizenid)
 );
+
+-- POST instructor assessments: append to existing PM Education schema.
+CREATE TABLE IF NOT EXISTS pm_education_practical_results (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ enrollment_id BIGINT UNSIGNED NOT NULL,
+ citizenid VARCHAR(64) NOT NULL,
+ institution_id VARCHAR(80) NOT NULL,
+ course_id VARCHAR(80) NOT NULL,
+ requirement_id VARCHAR(80) NOT NULL,
+ result ENUM('pass','fail','incomplete') NOT NULL,
+ notes TEXT NULL,
+ examiner_citizenid VARCHAR(64) NOT NULL,
+ recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(id),
+ KEY idx_enrollment_requirement (enrollment_id, requirement_id, recorded_at),
+ KEY idx_examiner (examiner_citizenid)
+);
