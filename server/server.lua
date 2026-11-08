@@ -411,7 +411,8 @@ lib.callback.register('pm-education:server:myEnrollments', function(src, institu
     if not citizenid or type(institutionId) ~= 'string' or not Config.Institutions[institutionId] or Config.Institutions[institutionId].enabled == false then return {} end
     local rows = MySQL.query.await(
         'SELECT id, course_id, status FROM pm_education_enrollments WHERE citizenid = ? AND institution_id = ? ORDER BY id DESC LIMIT 50',
-        { citizenid, institutionId }) or {}
+        { citizenid, institutionId })
+    if not rows then error('Enrollment history database unavailable') end
     for _, row in ipairs(rows) do
         local course = getCourse(institutionId, row.course_id, row.id)
         row.courseLabel = course and course.label or row.course_id
