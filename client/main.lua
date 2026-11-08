@@ -1,5 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local activeExam = false
+local spawnedPeds = {}
+local managementZones = {}
 
 local function notify(message, kind)
     lib.notify({ description = message, type = kind or 'inform' })
@@ -132,6 +134,7 @@ local function spawnInteraction(point, callback)
     SetEntityInvincible(ped, true)
     SetBlockingOfNonTemporaryEvents(ped, true)
     SetModelAsNoLongerNeeded(model)
+    spawnedPeds[#spawnedPeds + 1] = ped
     exports['qb-target']:AddTargetEntity(ped, {
         options = {{ icon = 'fas fa-graduation-cap', label = point.label or 'Education', action = callback }},
         distance = 2.0
@@ -274,7 +277,9 @@ CreateThread(function()
   local id = institutionId
   for index, desk in ipairs(institution.management or {}) do
    local location = desk
-   exports['qb-target']:AddBoxZone(('pm_education_management_%s_%d'):format(id, index),
+   local zoneName = ('pm_education_management_%s_%d'):format(id, index)
+   managementZones[#managementZones + 1] = zoneName
+   exports['qb-target']:AddBoxZone(zoneName,
     location.coords, location.length or 1.5, location.width or 1.5, {
      name = ('pm_education_management_%s_%d'):format(id, index),
      heading = location.heading or 0.0, minZ = location.coords.z - 1.0, maxZ = location.coords.z + 1.0
@@ -286,4 +291,17 @@ CreateThread(function()
   end
   end
  end
+end)
+
+AddEventHandler('onResourceStop', function(resourceName)
+    if resourceName ~= GetCurrentResourceName() then return end
+    for _, zoneName in ipairs(managementZones) do
+        exports['qb-target']:RemoveZone(zoneName)
+    end
+    for _, ped in ipairs(spawnedPeds) do
+        if DoesEntityExist(ped) then
+            exports['qb-target']:RemoveTargetEntity(ped)
+            DeleteEntity(ped)
+        end
+    end
 end)
