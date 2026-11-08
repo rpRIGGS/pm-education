@@ -34,7 +34,8 @@ RegisterNetEvent('pm-education:client:exam', openExam)
 RegisterNetEvent('pm-education:client:notify', notify)
 
 local function showPaymentReceipts(institutionId)
-    local receipts = lib.callback.await('pm-education:server:myPayments', false, institutionId) or {}
+    local receipts = lib.callback.await('pm-education:server:myPayments', false, institutionId)
+    if not receipts then return notify('Payment records are temporarily unavailable.', 'error') end
     local options = {}
     for _, receipt in ipairs(receipts) do
         options[#options + 1] = {
@@ -81,7 +82,8 @@ end
 
 
 local function showMyCredentials()
-    local records = lib.callback.await('pm-education:server:myCredentials', false) or {}
+    local records = lib.callback.await('pm-education:server:myCredentials', false)
+    if not records then return notify('Credential records are temporarily unavailable.', 'error') end
     local options = {}
     for _, record in ipairs(records) do
         options[#options + 1] = {
