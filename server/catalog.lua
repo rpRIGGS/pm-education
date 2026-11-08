@@ -133,17 +133,24 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
         local course = (Config.Institutions[institutionId].courses or {})[row.content_key]
         if not course then return false end
     end
-    if row.content_type == 'exam' and not (Config.Institutions[institutionId].courses or {})[row.content_key] then
-        return false -- An exam must be attached to an existing offered course.
-    end
-    -- Require an audit actor and institution boundary on every mutation.
-    local ok, changed = pcall(MySQL.update.await,
-        "UPDATE pm_education_catalog SET status = 'published', published_at = NOW() WHERE id = ? AND institution_id = ? AND status = 'draft' AND NOT EXISTS (SELECT 1 FROM (SELECT id FROM pm_education_catalog WHERE institution_id = ? AND content_type = ? AND content_key = ? AND status = 'published') AS active_revision)",
-        {catalogId, institutionId, institutionId, row.content_type, row.content_key})
-    if not ok or changed ~= 1 then return false end
-    MySQL.insert.await(
-        'INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, ?, ?)',
-        {catalogId, institutionId, actor, 'publish', 'Published immutable revision'})
+    -- Serialize publication for one institution/type/key across concurrent administrators.
+    -- MySQL GET_LOCK is connection scoped; use a single atomic SQL transaction instead.
+    -- A published revision is retired and the draft promoted in the same transaction.
+    local transactionOk, switched = pcall(MySQL.transaction.await, {
+        {
+            query = "UPDATE pm_education_catalog SET status = 'retired' WHERE institution_id = ? AND content_type = ? AND content_key = ? AND status = 'published'",
+            values = {institutionId, row.content_type, row.content_key}
+        },
+        {
+            query = "UPDATE pm_education_catalog SET status = 'published', published_at = NOW() WHERE id = ? AND institution_id = ? AND status = 'draft'",
+            values = {catalogId, institutionId}
+        },
+        {
+            query = "INSERT INTO pm_education_catalog_audit (catalog_id, institution_id, actor_citizenid, action, notes) VALUES (?, ?, ?, 'publish', ?)",
+            values = {catalogId, institutionId, actor, 'Activated revision; previous published revision retired'}
+        }
+    })
+    if not transactionOk or not switched then return false end
     return true
 end)
 
