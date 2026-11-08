@@ -332,12 +332,20 @@ local function openInstructorStudent(institutionId, student)
 end
 
 local function openInstructorManagement(institutionId)
- local students = lib.callback.await('pm-education:server:instructorStudents', false, institutionId) or {}
- local options = {
-  {title='Institution Curriculum Administration',description='Edit examinations, questions, answers and published revisions',onSelect=function()
-   OpenPMEducationCatalog(institutionId)
-  end}
- }
+ local students = lib.callback.await('pm-education:server:instructorStudents', false, institutionId)
+ if not students then return notify('Instructor records unavailable or access denied.', 'error') end
+ local options = {}
+ local institution = Config.Institutions[institutionId]
+ local player = QBCore.Functions.GetPlayerData()
+ local job = player and player.job
+ local rule = job and institution and institution.credentialAdminJobs and institution.credentialAdminJobs[job.name]
+ if rule and (tonumber(job.grade and job.grade.level) or -1) >= (rule.minGrade or 0) then
+  options[#options + 1] = {
+   title='Institution Curriculum Administration',
+   description='Edit examinations, questions, answers and published revisions',
+   onSelect=function() OpenPMEducationCatalog(institutionId) end
+  }
+ end
  for _, student in ipairs(students) do
   local selected = student
   options[#options + 1] = {
@@ -346,7 +354,7 @@ local function openInstructorManagement(institutionId)
    onSelect = function() openInstructorStudent(institutionId, selected) end
   }
  end
- if #options == 0 then options[1] = { title = 'No active students or access denied', disabled = true } end
+ if #students == 0 then options[#options + 1] = { title = 'No active students', disabled = true } end
  lib.registerContext({ id = 'pm_education_instructor_management', title = 'Instructor Management', options = options })
  lib.showContext('pm_education_instructor_management')
 end
