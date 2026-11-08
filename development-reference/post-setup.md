@@ -109,3 +109,20 @@ questions = {
 - `fxmanifest.lua`: includes `@oxmysql/lib/MySQL.lua` before the server scripts.
 
 **Known testing limitation:** Instructor access stays disabled until a real job/grade and management desk are configured. POST enrollment and examinations likewise need real NPC positions. No location has been invented.
+
+## Credential administration (new)
+
+Credential administrators are **not** automatically instructors. To enable status changes, configure BOTH `staffJobs` and `credentialAdminJobs` for the approved job/grade in `Config.Institutions.post`, and add a POST management desk. Example placeholder:
+
+```lua
+staffJobs = { YOUR_INSTRUCTOR_JOB = { minGrade = 2 } },
+credentialAdminJobs = { YOUR_APPROVED_ADMIN_JOB = { minGrade = 5 } },
+```
+
+A credential administrator must satisfy both checks (add the administrator job to `staffJobs` as well if it differs from the instructor job). Leave `credentialAdminJobs = {}` to disable status changes.
+
+From Instructor Management → student → Manage credentials, an authorized administrator can suspend, revoke, or restore a suspended credential with a mandatory reason. Each decision is recorded in `pm_education_credential_audit`. Revoked and expired credentials cannot be automatically restored. Completed enrollments remain visible for administration.
+
+The `HasCredential` export rejects suspended/revoked/expired credentials. **SQL is authoritative**; any future printed qb-inventory certificate is only a representation.
+
+Test status changes and audit persistence on the development database before live use. The current design has no multi-server distributed lock and has not undergone concurrency testing.
