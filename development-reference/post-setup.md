@@ -162,3 +162,11 @@ Enrollment and examination cash payments create a ledger entry before debiting Q
 From the **server console only**, run `pm_education_payments` to list up to 50 payments needing review. This is intentionally read-only and never automatically retries debits or refunds. An administrator must reconcile uncertain rows against the QBCore cash records before changing balances.
 
 **Still pending:** society deposit adapter, configurable cash/bank payment method, payment receipts, crash-window recovery, duplicate-enrollment database uniqueness, and real FiveM/oxmysql integration tests. The ledger improves traceability but cannot make a QBCore cash debit and a separate MySQL write fully atomic.
+
+## Enrollment uniqueness, receipts and configurable payment source
+
+- New installs: `sql/pm_education.sql` creates `uq_student_course` on `(citizenid, institution_id, course_id)`. **Existing installs:** `CREATE TABLE IF NOT EXISTS` does not add this key to an existing table. Inspect and resolve any duplicates, then apply the unique index manually before relying on database enforcement.
+- Students can open **Payment Receipts** at an admissions NPC; the server only returns records matching their own citizen ID and institution.
+- `Config.Payment.moneyType` accepts `'cash'` (default) or `'bank'`; the chosen type is recorded in each payment ledger entry. Do not change the money type while a transaction is being processed.
+- `Config.Payment.societyDepositsEnabled = false` and `societyAdapter = 'none'` are deliberate placeholders. **No society deposits occur yet.**
+- Retakes, chargebacks, administrator reconciliation and business accounting require additional policy/integration work; receipt entries are not proof that society funds were transferred.
