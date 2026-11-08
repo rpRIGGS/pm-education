@@ -202,3 +202,28 @@ RegisterCommand('pm_education_catalog_check', function(source, args)
         print('[pm-education] Catalog audit failed: ' .. tostring(err))
     end
 end, true)
+
+-- Console-only reconciliation report. Read-only: bank and player-money ledgers
+-- must be checked before a human changes any payment status.
+RegisterCommand('pm_education_payment_review', function(source, args)
+    if source ~= 0 then return end
+    local institutionId = args and args[1]
+    if type(institutionId) ~= 'string' or not Config.Institutions[institutionId] then
+        print('[pm-education] Usage: pm_education_payment_review <configured_institution_id>')
+        return
+    end
+    local ok, rows = pcall(MySQL.query.await,
+        "SELECT id, citizenid, course_id, payment_type, amount, money_type, status, details, updated_at FROM pm_education_payments WHERE institution_id = ? AND status IN ('pending','charged','refund_failed') ORDER BY updated_at ASC LIMIT 100",
+        {institutionId})
+    if not ok or not rows then
+        print('[pm-education] Payment review failed: database unavailable')
+        return
+    end
+    for _, row in ipairs(rows) do
+        print(('[pm-education] PAYMENT REVIEW #%s student=%s course=%s type=%s amount=%s method=%s status=%s note=%s'):format(
+            tostring(row.id), tostring(row.citizenid), tostring(row.course_id),
+            tostring(row.payment_type), tostring(row.amount), tostring(row.money_type),
+            tostring(row.status), tostring(row.details or 'none')))
+    end
+    print(('[pm-education] Payment review: %d unresolved records shown (maximum 100); no balances or statuses changed'):format(#rows))
+end, true)
