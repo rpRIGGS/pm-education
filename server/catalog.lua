@@ -1,6 +1,6 @@
 -- PM Education institution catalog: server-only authoring API.
--- Requires sql/pm_education_catalog.sql. Existing exam delivery remains unchanged
--- until the version-aware delivery migration is implemented.
+-- Requires sql/pm_education_catalog.sql and the attempt revision migration.
+-- Published revisions are consumed by the runtime in server/server.lua.
 local Core = exports['qb-core']:GetCoreObject()
 
 local function authorized(src, institutionId)
@@ -117,7 +117,7 @@ lib.callback.register('pm-education:server:catalogSaveDraft', function(src, inst
     return ok and saved == true
 end)
 
--- Explicit publication; new sessions can select this revision after delivery migration.
+-- Explicit publication; new exam sessions use the activated revision.
 lib.callback.register('pm-education:server:catalogPublish', function(src, institutionId, catalogId)
     local allowed, actor = authorized(src, institutionId)
     if not allowed or type(catalogId) ~= 'number' or catalogId % 1 ~= 0 then return false end
@@ -133,9 +133,8 @@ lib.callback.register('pm-education:server:catalogPublish', function(src, instit
     elseif row.content_type == 'course' then
         if not (Config.Institutions[institutionId].courses or {})[row.content_key] then return false end
     end
-    -- Serialize publication for one institution/type/key across concurrent administrators.
-    -- MySQL GET_LOCK is connection scoped; use a single atomic SQL transaction instead.
-    -- A published revision is retired and the draft promoted in the same transaction.
+    -- Retirement, activation and audit share a transaction.
+    -- Cross-connection concurrent publication still needs a uniqueness constraint.
     local transactionOk, switched = pcall(MySQL.transaction.await, {
         {
             query = "UPDATE pm_education_catalog SET status = 'retired' WHERE institution_id = ? AND content_type = ? AND content_key = ? AND status = 'published'",
