@@ -1,5 +1,6 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local activeExams = {}
+local enrollmentLocks = {}
 
 local function notify(src, message, kind)
     TriggerClientEvent('pm-education:client:notify', src, message, kind)
@@ -9,6 +10,24 @@ local function getCourse(institutionId, courseId)
     if type(institutionId) ~= 'string' or type(courseId) ~= 'string' then return end
     local institution = Config.Institutions[institutionId]
     return institution and institution.courses[courseId], institution
+end
+
+local function nearInteraction(src, institutionId, kind, courseId)
+    local institution = Config.Institutions[institutionId]
+    if not institution then return false end
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then return false end
+    local position = GetEntityCoords(ped)
+    for _, point in ipairs(institution[kind] or {}) do
+        local allowed = kind == 'admissions'
+        if kind == 'examiners' then
+            for _, offered in ipairs(point.courses or {}) do
+                if offered == courseId then allowed = true break end
+            end
+        end
+        if allowed and #(position - vector3(point.coords.x, point.coords.y, point.coords.z)) <= 5.0 then return true end
+    end
+    return false
 end
 
 local function playerFor(src)
@@ -33,16 +52,23 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId)
     local src = source
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
-    if not player or not course then return end
+    if not player or not course or not nearInteraction(src, institutionId, 'admissions') then return end
+    if enrollmentLocks[citizenid] then return end
+    enrollmentLocks[citizenid] = true
     local existing = enrollment(citizenid, institutionId, courseId)
-    if existing then return notify(src, 'Enrollment already exists. See My Enrollments.', 'error') end
+    if existing then
+        enrollmentLocks[citizenid] = nil
+        return notify(src, 'Enrollment already exists. See My Enrollments.', 'error')
+    end
     local fee = course.enrollmentFee or 0
     if not charge(player, fee, 'PM Education Enrollment') then
+        enrollmentLocks[citizenid] = nil
         return notify(src, 'Insufficient cash for enrollment.', 'error')
     end
     local ok, id = pcall(MySQL.insert.await,
         'INSERT INTO pm_education_enrollments (citizenid, institution_id, course_id) VALUES (?, ?, ?)',
         { citizenid, institutionId, courseId })
+    enrollmentLocks[citizenid] = nil
     if not ok or not id then
         if fee > 0 then player.Functions.AddMoney('cash', fee, 'PM Education Enrollment Refund') end
         return notify(src, 'Enrollment could not be saved. Payment refunded.', 'error')
@@ -67,7 +93,8 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local src = source
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
-    if not player or not course or type(course.questions) ~= 'table' or #course.questions == 0 then return end
+    if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId)
+        or type(course.questions) ~= 'table' or #course.questions == 0 then return end
     if activeExams[src] then return notify(src, 'An exam is already active.', 'error') end
     local record = enrollment(citizenid, institutionId, courseId)
     if not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress') then
@@ -110,4 +137,8 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     notify(src, ('Exam %s: %d%%'):format(passed and 'passed' or 'failed', score), passed and 'success' or 'error')
 end)
 
-AddEventHandler('playerDropped', function() activeExams[source] = nil end)
+AddEventHandler('playerDropped', function()
+    activeExams[source] = nil
+    local _, citizenid = playerFor(source)
+    if citizenid then enrollmentLocks[citizenid] = nil end
+end)
