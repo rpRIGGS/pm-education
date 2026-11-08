@@ -40,3 +40,19 @@ CREATE TABLE IF NOT EXISTS pm_education_practical_results (
  KEY idx_enrollment_requirement (enrollment_id, requirement_id, recorded_at),
  KEY idx_examiner (examiner_citizenid)
 );
+
+-- Authoritative milestone awards; printed inventory items are optional and not issued here.
+CREATE TABLE IF NOT EXISTS pm_education_credentials (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ enrollment_id BIGINT UNSIGNED NOT NULL,
+ citizenid VARCHAR(64) NOT NULL,
+ institution_id VARCHAR(80) NOT NULL,
+ credential_id VARCHAR(80) NOT NULL,
+ credential_label VARCHAR(160) NOT NULL,
+ status ENUM('active','suspended','revoked','expired') NOT NULL DEFAULT 'active',
+ issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ expires_at TIMESTAMP NULL DEFAULT NULL,
+ PRIMARY KEY (id),
+ UNIQUE KEY uq_enrollment_credential (enrollment_id, credential_id),
+ KEY idx_citizen_credential (citizenid, credential_id, status)
+);
