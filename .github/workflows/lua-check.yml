@@ -119,6 +119,10 @@ jobs:
               'practical lock cleanup': 'practicalLocks[enrollmentId] = nil',
               'practical failure isolation': "Practical evaluation failed for enrollment #%s",
               'blank exam question rejection': "type(question.question) ~= 'string' or question.question == ''",
+              'pending exam source ownership': 'local function stillOwner()',
+              'pending exam identity cleanup': 'if activeExams[src] == pendingSession then activeExams[src] = nil end',
+              'abandoned paid exam refund': 'Exam request abandoned after debit',
+              'exam delivery source ownership': 'activeExams[src] ~= examSession or not currentPlayer',
           }
           required_client = {
               'student progress refresh': 'Refresh progress',
