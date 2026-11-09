@@ -5,11 +5,13 @@ on:
     paths:
       - '**/*.lua'
       - 'fxmanifest.lua'
+      - 'sql/**'
       - '.github/workflows/lua-check.yml'
   pull_request:
     paths:
       - '**/*.lua'
       - 'fxmanifest.lua'
+      - 'sql/**'
       - '.github/workflows/lua-check.yml'
 
 jobs:
