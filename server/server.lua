@@ -684,7 +684,8 @@ lib.callback.register('pm-education:server:instructorStudents', function(src, in
 end)
 
 lib.callback.register('pm-education:server:instructorResults', function(src, institutionId, enrollmentId)
- if not instructorAuthorized(src, institutionId) or type(enrollmentId) ~= 'number' then return {} end
+ if not instructorAuthorized(src, institutionId) or type(enrollmentId) ~= 'number' or
+    enrollmentId % 1 ~= 0 or enrollmentId < 1 then return {} end
  local record = MySQL.single.await('SELECT id FROM pm_education_enrollments WHERE id = ? AND institution_id = ?', {enrollmentId, institutionId})
  if not record then return {} end
  return MySQL.query.await(
