@@ -3,6 +3,8 @@
 -- Never overwrites an existing draft, published revision, or in-game edit.
 local templates = {
     'development/institutions/post.lua',
+    'development/institutions/safr.lua',
+    'development/institutions/sams.lua',
     'development/institutions/sandy_university.lua'
 }
 local function validId(s)
