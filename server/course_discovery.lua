@@ -28,9 +28,12 @@ local function availableCourses(institutionId)
             enrollmentFee = config.enrollmentFee or 0,
             examFee = config.examFee or 0,
             passPercent = override and override.passPercent or config.passPercent,
-            requireWritten = override and override.requireWritten ~= nil and override.requireWritten or config.requireWritten,
+            requireWritten = config.requireWritten,
             practicalRequirements = {}
         }
+        if override and override.requireWritten ~= nil then
+            courses[#courses].requireWritten = override.requireWritten
+        end
         for _, requirement in ipairs((override and override.practicalRequirements) or config.practicalRequirements or {}) do
             courses[#courses].practicalRequirements[#courses[#courses].practicalRequirements + 1] = {
                 id = requirement.id, label = requirement.label
