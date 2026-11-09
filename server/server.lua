@@ -546,7 +546,11 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local courseOk, course = pcall(getCourse, institutionId, courseId, session.enrollmentId)
     if not courseOk then
         print(('[pm-education] Exam submission curriculum lookup failed: %s'):format(tostring(course)))
-        return notify(src, 'Assigned curriculum temporarily unavailable. Your exam session remains active.', 'error')
+        notify(src, 'Assigned curriculum temporarily unavailable. Your paid exam will reopen without a new charge.', 'error')
+        if activeExams[src] == session and session.questions then
+            TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)
+        end
+        return
     end
     local answerKey = session.answerKey or {}
     if not course or type(answers) ~= 'table' or #answerKey == 0 or #answers ~= #answerKey then
