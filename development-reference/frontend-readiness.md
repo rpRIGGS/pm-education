@@ -68,3 +68,16 @@ Sandy Shores University remains disabled until its real site and roles are appro
 - Both roles require proximity to a configured `management` desk. An administrator is **not** automatically an instructor.
 - An administrator-only user sees a management menu for curriculum and credential administration; an instructor-only user sees assessments, but not credential status controls.
 - Test four combinations in FiveM: instructor only, admin only, both, neither. Also test leaving the desk, changing grade/job, and disabled institutions. Client visibility is convenience only; the server must deny unauthorized requests.
+
+## Student gameplay flow implemented with placeholders
+1. Student approaches the configured admissions NPC and chooses a course.
+2. Course preview shows fees, written-exam policy, passing threshold and ordered practicals.
+3. Enrollment checks the approved exam bank and payment ledger before recording the student.
+4. At a configured examiner NPC, an enrolled student may take the assigned written exam.
+5. Authorized instructors record Code 5 stop, pursuit and evasive-driving outcomes.
+6. Student opens My Enrollments -> progress to view the latest status of each practical.
+7. Once required exam and practicals pass, the server issues the configured SQL credential.
+8. Student sees the awarded credential; this does not automatically change their job, grade or license.
+
+**Placeholder policy:** no invented POST coordinates, staff jobs, or exam answer keys.
+The workflow is coded but still requires server execution and test results.
