@@ -118,6 +118,7 @@ jobs:
               'practical evaluation lock': 'if practicalLocks[enrollmentId] then',
               'practical lock cleanup': 'practicalLocks[enrollmentId] = nil',
               'practical failure isolation': "Practical evaluation failed for enrollment #%s",
+              'blank exam question rejection': "type(question.question) ~= 'string' or question.question == ''",
           }
           required_client = {
               'student progress refresh': 'Refresh progress',
