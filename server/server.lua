@@ -653,8 +653,8 @@ lib.callback.register('pm-education:server:instructorResults', function(src, ins
  local record = MySQL.single.await('SELECT id FROM pm_education_enrollments WHERE id = ? AND institution_id = ?', {enrollmentId, institutionId})
  if not record then return {} end
  return MySQL.query.await(
-  'SELECT requirement_id, result, notes, examiner_citizenid, recorded_at FROM pm_education_practical_results WHERE enrollment_id = ? ORDER BY id DESC LIMIT 100',
-  {enrollmentId})
+  'SELECT requirement_id, result, notes, examiner_citizenid, recorded_at FROM pm_education_practical_results WHERE enrollment_id = ? AND institution_id = ? ORDER BY id DESC LIMIT 100',
+  {enrollmentId, institutionId})
 end)
 
 RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, enrollmentId, requirementId, result, notes)
