@@ -1,6 +1,23 @@
 # PM Education — POST Development Server Setup
 
-**Status:** Code committed; NOT yet tested in FiveM. Do not assume production readiness.
+**Status:** POST implementation is being prepared for development-server testing; NOT yet verified in FiveM. Do not assume production readiness.
+
+> **Current configuration authority (November 2026):** Use `config.lua`, `server/questions.lua`, and `server/post_readiness.lua` as the source of truth. Some historical sections further below describe superseded implementation stages. The current code supports separate instructor/admin roles, audited credential status changes, cash/bank payment methods, qb-banking society credits, and payment receipts. A successful society credit with failed ledger finalization is **not** considered fully reconciled. No automatic job/rank/license assignment is performed.
+
+### POST configuration gate
+
+Fill these fields before the in-server POST test; do not change SAFR or SAMS placeholders:
+
+- `Config.Institutions.post.admissions`: NPC model, actual `vector4` and label.
+- `Config.Institutions.post.examiners`: NPC model, actual `vector4`, and `courses = {'post_basic'}`.
+- `Config.Institutions.post.management`: actual `vector3`, heading, box dimensions and label.
+- `Config.Institutions.post.staffJobs`: authorized instructor job names and minimum grades.
+- `Config.Institutions.post.credentialAdminJobs`: separately authorized credential administrator jobs and minimum grades. An administrator does not have to be an instructor.
+- `server/questions.lua` or a published approved POST exam: real written questions and answer keys; the POST course requires written assessment.
+- `Config.Institutions.post.courses.post_basic.passPercent`: confirm the provisional 80% threshold, fees, practical requirements and credential label.
+- Ensure `qb-banking` contains the configured `post` society account. Check the SQL schema and migrations before testing.
+
+Run `pm_education_post_check` **in the server console** after configuring POST. It checks deployment configuration, not question approval, SQL, payment integrations, or gameplay success.
 
 ## Installation
 
