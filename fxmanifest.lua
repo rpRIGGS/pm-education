@@ -35,5 +35,7 @@ dependencies {
 
 files {
     'development/institutions/post.lua',
+    'development/institutions/safr.lua',
+    'development/institutions/sams.lua',
     'development/institutions/sandy_university.lua'
 }
