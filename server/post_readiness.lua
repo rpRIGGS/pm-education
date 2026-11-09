@@ -35,6 +35,21 @@ local function countRules(rules)
     return count
 end
 
+local function approvedWrittenBank()
+    local bank = EducationQuestions and EducationQuestions.post and EducationQuestions.post.post_basic
+    if type(bank) ~= 'table' or #bank == 0 then return false end
+    for _, question in ipairs(bank) do
+        if type(question) ~= 'table' or type(question.question) ~= 'string' or question.question == '' or
+            type(question.answers) ~= 'table' or #question.answers < 2 or
+            type(question.correct) ~= 'number' or question.correct % 1 ~= 0 or
+            question.correct < 1 or question.correct > #question.answers then return false end
+        for _, answer in ipairs(question.answers) do
+            if type(answer) ~= 'string' or answer == '' then return false end
+        end
+    end
+    return true
+end
+
 RegisterCommand('pm_education_post_check', function(source)
     if source ~= 0 then return end
     local institution = Config.Institutions and Config.Institutions.post
@@ -55,6 +70,7 @@ RegisterCommand('pm_education_post_check', function(source)
             institution.courses.post_basic.credentialId ~= '' },
         { 'POST written assessment required', institution.courses and institution.courses.post_basic and
             institution.courses.post_basic.requireWritten == true },
+        { 'POST legacy written question bank populated', approvedWrittenBank() },
         { 'POST practical requirements configured', institution.courses and institution.courses.post_basic and
             type(institution.courses.post_basic.practicalRequirements) == 'table' and
             #institution.courses.post_basic.practicalRequirements > 0 },
@@ -64,5 +80,5 @@ RegisterCommand('pm_education_post_check', function(source)
         if check[2] then passed = passed + 1 end
         print(('[pm-education][POST] %s: %s'):format(check[1], check[2] and 'CONFIGURED' or 'PENDING'))
     end
-    print(('[pm-education][POST] Configuration: %d/%d checks; SQL, published questions, approved policy and FiveM gameplay still require separate validation.'):format(passed, #checks))
+    print(('[pm-education][POST] Configuration: %d/%d checks; published catalog questions may replace the legacy bank. SQL, publication, approved policy and FiveM gameplay still require separate validation.'):format(passed, #checks))
 end, true)
