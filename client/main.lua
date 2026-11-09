@@ -61,6 +61,19 @@ local function showStudentProgress(institutionId, record)
         {title = 'Course requirements', description = progress.complete and
             'Satisfied' or 'Outstanding', disabled = true}
     }
+    local checklist = lib.callback.await('pm-education:server:myPracticalChecklist', false, institutionId, record.id)
+    if not checklist then return notify('Practical assessment checklist unavailable.', 'error') end
+    for index, practical in ipairs(checklist) do
+        local status = ({
+            pass = 'Passed', fail = 'Not passed', incomplete = 'Incomplete',
+            not_evaluated = 'Awaiting instructor evaluation'
+        })[practical.result] or 'Unknown'
+        options[#options + 1] = {
+            title = ('%d. %s'):format(index, practical.label),
+            description = status,
+            disabled = true
+        }
+    end
     lib.registerContext({
         id = 'pm_education_student_progress',
         title = record.courseLabel,
