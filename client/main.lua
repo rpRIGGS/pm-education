@@ -1,5 +1,6 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local activeExam = false
+local queuedExam = nil
 local spawnedPeds = {}
 local managementZones = {}
 
@@ -8,7 +9,12 @@ local function notify(message, kind)
 end
 
 local function openExam(institutionId, courseId, questions)
-    if activeExam then return end
+    if activeExam then
+        -- Server recovery can arrive while the final input dialog is closing.
+        -- Queue the paid session instead of silently dropping the retry event.
+        queuedExam = { institutionId = institutionId, courseId = courseId, questions = questions }
+        return
+    end
     activeExam = true
     local answers = {}
     for index, question in ipairs(questions) do
@@ -22,12 +28,21 @@ local function openExam(institutionId, courseId, questions)
         if not result then
             TriggerServerEvent('pm-education:server:cancelExam', institutionId, courseId)
             activeExam = false
+            queuedExam = nil
             return
         end
         answers[index] = tonumber(result[1])
     end
     TriggerServerEvent('pm-education:server:submitExam', institutionId, courseId, answers)
     activeExam = false
+    if queuedExam then
+        local retry = queuedExam
+        queuedExam = nil
+        CreateThread(function()
+            Wait(0)
+            openExam(retry.institutionId, retry.courseId, retry.questions)
+        end)
+    end
 end
 
 RegisterNetEvent('pm-education:client:exam', openExam)
