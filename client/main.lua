@@ -471,7 +471,6 @@ CreateThread(function()
   for index, desk in ipairs(institution.management or {}) do
    local location = desk
    local zoneName = ('pm_education_management_%s_%d'):format(id, index)
-   managementZones[#managementZones + 1] = zoneName
    if location.coords then
    exports['qb-target']:AddBoxZone(zoneName,
     location.coords, location.length or 1.5, location.width or 1.5, {
@@ -482,6 +481,7 @@ CreateThread(function()
      label = location.label or 'Instructor Management',
      action = function() openInstructorManagement(id) end
     }}, distance = 2.0 })
+   managementZones[#managementZones + 1] = zoneName
    else
     print(('[pm-education] Skipping management desk %s/%s without coordinates'):format(id, index))
    end
