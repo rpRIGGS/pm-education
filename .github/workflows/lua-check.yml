@@ -138,6 +138,8 @@ jobs:
               'completed assessment read-only': "disabled = student.status ~= 'enrolled' and student.status ~= 'in_progress'",
               'credential roster refresh': 'Refresh student roster',
               'instructor roster refresh': 'Refresh instructor roster',
+              'paid exam retry queued while dialog active': 'queuedExam = { institutionId = institutionId, courseId = courseId, questions = questions }',
+              'paid exam retry flushed after dialog': 'openExam(retry.institutionId, retry.courseId, retry.questions)',
           }
           required_readiness = {
               'POST console-only command': "RegisterCommand('pm_education_post_check'",
