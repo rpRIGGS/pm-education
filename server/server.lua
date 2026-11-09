@@ -474,8 +474,8 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         activeExams[src] = nil
         return notify(src, 'This course does not require a written examination.', 'error')
     end
-    local selectedQuestions, revisionId, catalogError = getQuestions(institutionId, courseId, record.id)
-    if catalogError or not selectedQuestions or #selectedQuestions == 0 then
+    local questionsOk, selectedQuestions, revisionId, catalogError = pcall(getQuestions, institutionId, courseId, record.id)
+    if not questionsOk or catalogError or type(selectedQuestions) ~= 'table' or #selectedQuestions == 0 then
         activeExams[src] = nil
         return notify(src, 'Assigned examination unavailable. No fee charged.', 'error')
     end
