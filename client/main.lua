@@ -403,7 +403,34 @@ local function openInstructorStudent(institutionId, student)
    end
   }
  end
- if #options == 0 then options[1] = { title = 'No practical requirements configured', disabled = true } end
+ options[#options + 1] = {
+  title = 'Assessment history',
+  description = 'Review recorded results and instructor notes',
+  onSelect = function()
+   local entries = {}
+   for _, result in ipairs(history) do
+    entries[#entries + 1] = {
+     title = ('%s: %s'):format(result.requirement_id, result.result),
+     description = ('Examiner: %s | %s%s'):format(
+      result.examiner_citizenid or 'Unknown', tostring(result.recorded_at or ''),
+      result.notes and result.notes ~= '' and (' | ' .. result.notes) or ''),
+     disabled = true
+    }
+   end
+   if #entries == 0 then entries[1] = { title = 'No assessments recorded', disabled = true } end
+   lib.registerContext({
+    id = 'pm_education_instructor_history',
+    title = 'Practical Assessment History',
+    menu = 'pm_education_instructor_student',
+    options = entries
+   })
+   lib.showContext('pm_education_instructor_history')
+  end
+ }
+ options[#options + 1] = {
+  title = 'Refresh student progress',
+  onSelect = function() openInstructorStudent(institutionId, student) end
+ }
  lib.registerContext({ id = 'pm_education_instructor_student', title = course.label .. ' / ' .. student.citizenid, options = options })
  lib.showContext('pm_education_instructor_student')
 end
