@@ -62,7 +62,14 @@ local function showStudentProgress(institutionId, record)
             'Satisfied' or 'Outstanding', disabled = true}
     }
     local checklist = lib.callback.await('pm-education:server:myPracticalChecklist', false, institutionId, record.id)
-    if not checklist then return notify('Practical assessment checklist unavailable.', 'error') end
+    if not checklist then
+        options[#options + 1] = {
+            title = 'Practical checklist unavailable',
+            description = 'Detailed results could not be loaded. Summary remains available.',
+            disabled = true
+        }
+        checklist = {}
+    end
     for index, practical in ipairs(checklist) do
         local status = ({
             pass = 'Passed', fail = 'Not passed', incomplete = 'Incomplete',
