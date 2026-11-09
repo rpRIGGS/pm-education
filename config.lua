@@ -70,3 +70,55 @@ Config.Institutions.post = {
   }
  }
 }
+
+-- SAFR and SAMS share the POST enrollment/assessment/credential engine.
+-- Real jobs, desks and examination content remain intentionally unset.
+Config.Institutions.safr = {
+ label = 'San Andreas Fire & Rescue (SAFR)',
+ enabled = true, -- No world interactions until configured below
+ society = 'safr',
+ staffJobs = {},
+ credentialAdminJobs = {},
+ admissions = {},
+ examiners = {},
+ management = {},
+ courses = {
+  safr_foundations = {
+   label = 'SAFR Fire & Rescue Foundations',
+   enrollmentFee = 0, examFee = 0, passPercent = 80,
+   requireWritten = true,
+   credentialId = 'safr_foundations_certificate',
+   credentialLabel = 'SAFR Fire & Rescue Foundations Certificate',
+   practicalRequirements = {
+    { id = 'incident_scene', label = 'Incident Scene Safety Assessment' },
+    { id = 'fire_response', label = 'Fire Response Practical' },
+    { id = 'rescue_response', label = 'Rescue Response Practical' }
+   }
+  }
+ }
+}
+
+Config.Institutions.sams = {
+ label = 'San Andreas Medical Services (SAMS)',
+ enabled = true, -- No world interactions until configured below
+ society = 'sams',
+ staffJobs = {},
+ credentialAdminJobs = {},
+ admissions = {},
+ examiners = {},
+ management = {},
+ courses = {
+  sams_foundations = {
+   label = 'SAMS Medical & EMS Foundations',
+   enrollmentFee = 0, examFee = 0, passPercent = 80,
+   requireWritten = true,
+   credentialId = 'sams_foundations_certificate',
+   credentialLabel = 'SAMS Medical & EMS Foundations Certificate',
+   practicalRequirements = {
+    { id = 'patient_assessment', label = 'Patient Assessment Practical' },
+    { id = 'patient_care', label = 'Patient Care Practical' },
+    { id = 'handoff', label = 'Patient Handoff Practical' }
+   }
+  }
+ }
+}
