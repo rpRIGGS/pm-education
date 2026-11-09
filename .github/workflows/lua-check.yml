@@ -111,6 +111,8 @@ jobs:
               'payment ledger reconciliation failure': "Society credit for payment #%s needs manual ledger reconciliation",
               'exam submission session lock': 'session.submitting = true',
               'exam result persistence before session consumption': '-- Persisted attempt is authoritative. Never accept the same session again.',
+              'exam retry uses original questions': "TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)",
+              'exam retry does not start new payment': 'questions = questions, passPercent = threshold',
           }
           required_client = {
               'student progress refresh': 'Refresh progress',
