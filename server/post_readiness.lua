@@ -4,6 +4,7 @@ local function configuredPoint(point)
     if type(point) ~= 'table' or not point.coords then return false end
     local coords = point.coords
     return type(coords.x) == 'number' and type(coords.y) == 'number' and type(coords.z) == 'number'
+        and coords.x == coords.x and coords.y == coords.y and coords.z == coords.z
 end
 
 local function examinerOffers(points, courseId)
