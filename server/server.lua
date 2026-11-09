@@ -554,8 +554,15 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         end
         return
     end
-    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey, questions = questions, passPercent = threshold, catalogRevisionId = revisionId }
+    local examSession = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey, questions = questions, passPercent = threshold, catalogRevisionId = revisionId }
+    activeExams[src] = examSession
     local completedOk, credited = pcall(paymentComplete, paymentId, record.id, institutionId, fee)
+    local currentPlayer = QBCore.Functions.GetPlayer(src)
+    if activeExams[src] ~= examSession or not currentPlayer or
+        currentPlayer.PlayerData.citizenid ~= citizenid then
+        -- The charge is already recorded; never deliver another student's exam.
+        return
+    end
     if not completedOk or not credited then
         notify(src, 'Exam started; society payment requires administrator reconciliation.', 'error')
     end
