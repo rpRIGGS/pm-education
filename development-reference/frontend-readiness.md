@@ -81,3 +81,17 @@ Sandy Shores University remains disabled until its real site and roles are appro
 
 **Placeholder policy:** no invented POST coordinates, staff jobs, or exam answer keys.
 The workflow is coded but still requires server execution and test results.
+
+## POST-only completion checkpoint (November 2026)
+Development focus is POST exclusively. SAFR and SAMS remain provisional placeholders; do not expand them until POST pilot work is wrapped up.
+
+- Student admissions course preview, enrollment, written exam, instructor practical results, progress refresh, credential review, curriculum editing and credential administration are implemented.
+- Instructor and credential administrator permissions are separate, enforced at management desks.
+- Practical checklist queries are scoped to enrollment, institution and course; progress summary remains available if detailed lookup fails.
+- Examiner menus exclude courses that do not require written exams.
+- Management zone cleanup only targets zones that were actually registered.
+- GitHub CI checks POST identifiers, practical names, empty desk placeholders and matching client/server callbacks.
+- **Read-only console check:** run `pm_education_post_check` to list configured/missing POST desks, role rules and course offering. This does not validate the database, question approval or gameplay.
+- **Still unverified:** GitHub Actions execution, SQL installation/migrations, staging interactions, qb-target placement, qb-banking society account and payment tests, approved written questions, instructor evaluations and credential issuance in live FiveM.
+
+Do not claim the POST pilot is live-tested or deployable solely because the static checklist passes.
