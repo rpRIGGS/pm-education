@@ -112,6 +112,8 @@ jobs:
               'exam submission session lock': 'session.submitting = true',
               'exam result persistence before session consumption': '-- Persisted attempt is authoritative. Never accept the same session again.',
               'exam retry uses original questions': "TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)",
+              'cancel rejects in-flight submission': 'if not session or session.pending or session.submitting or',
+              'curriculum lookup recovery': 'Assigned curriculum temporarily unavailable. Your paid exam will reopen without a new charge.',
               'exam retry does not start new payment': 'questions = questions, passPercent = threshold',
           }
           required_client = {
