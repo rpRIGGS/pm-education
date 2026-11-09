@@ -27,8 +27,15 @@ local function availableCourses(institutionId)
             label = override and override.label or config.label or id,
             enrollmentFee = config.enrollmentFee or 0,
             examFee = config.examFee or 0,
-            passPercent = override and override.passPercent or config.passPercent
+            passPercent = override and override.passPercent or config.passPercent,
+            requireWritten = override and override.requireWritten ~= nil and override.requireWritten or config.requireWritten,
+            practicalRequirements = {}
         }
+        for _, requirement in ipairs((override and override.practicalRequirements) or config.practicalRequirements or {}) do
+            courses[#courses].practicalRequirements[#courses[#courses].practicalRequirements + 1] = {
+                id = requirement.id, label = requirement.label
+            }
+        end
     end
     table.sort(courses, function(a, b) return a.label < b.label end)
     return courses
