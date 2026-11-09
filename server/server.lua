@@ -713,8 +713,8 @@ lib.callback.register('pm-education:server:myPracticalChecklist', function(src, 
     local course = getCourse(institutionId, record.course_id, enrollmentId)
     if not course then return nil end
     local results = MySQL.query.await(
-        'SELECT requirement_id, result FROM pm_education_practical_results WHERE enrollment_id = ? ORDER BY id DESC',
-        {enrollmentId})
+        'SELECT requirement_id, result FROM pm_education_practical_results WHERE enrollment_id = ? AND institution_id = ? AND course_id = ? ORDER BY id DESC',
+        {enrollmentId, institutionId, record.course_id})
     if not results then return nil end
     local latest = {}
     for _, row in ipairs(results) do
