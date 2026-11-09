@@ -123,6 +123,9 @@ jobs:
               'pending exam identity cleanup': 'if activeExams[src] == pendingSession then activeExams[src] = nil end',
               'abandoned paid exam refund': 'Exam request abandoned after debit',
               'exam delivery source ownership': 'activeExams[src] ~= examSession or not currentPlayer',
+              'exam submit source ownership': 'local function stillOwner()',
+              'exam submit session cleanup': 'if activeExams[src] == session then activeExams[src] = nil end',
+              'practical reauthorization after queries': 'Instructor authorization expired; evaluation not saved.',
           }
           required_client = {
               'student progress refresh': 'Refresh progress',
