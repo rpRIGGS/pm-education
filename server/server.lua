@@ -1,6 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local activeExams = {}
 local enrollmentLocks = {}
+local enrollmentLockOwners = {} -- source -> citizenid; survives player object disappearing on disconnect
 local credentialLocks = {}
 
 local function getQuestions(institutionId, courseId, enrollmentId)
@@ -340,13 +341,16 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
     if not player or not course or not nearInteraction(src, institutionId, 'admissions') then return end
     if enrollmentLocks[citizenid] then return end
     enrollmentLocks[citizenid] = true
+    enrollmentLockOwners[src] = citizenid
     local lookupOk, existing = pcall(enrollment, citizenid, institutionId, courseId)
     if not lookupOk then
         enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[src] = nil
         return notify(src, 'Enrollment database unavailable. No fee charged.', 'error')
     end
     if existing then
         enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[src] = nil
         return notify(src, 'Enrollment already exists. See My Enrollments.', 'error')
     end
     -- Refuse to enroll into an unfulfillable written course. An exam
@@ -356,6 +360,7 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         if not questionsOk or questionError or type(questions) ~= 'table' or
             (course.requireWritten == true and #questions == 0) then
             enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[src] = nil
             return notify(src, 'This course has no available approved written examination. No fee charged.', 'error')
         end
     end
@@ -363,6 +368,7 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
     local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, nil, 'enrollment', fee, paymentMethod)
     if not paid or not paymentId then
         enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[src] = nil
         return notify(src, paid and paymentError or 'Payment processing failed; review ledger before retrying.', 'error')
     end
     -- Capture the published course revision at enrollment creation.
@@ -372,6 +378,7 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         {institutionId, courseId})
     if not revisionOk then
         enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[src] = nil
         local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Curriculum revision lookup failed')
         return notify(src, refunded and 'Enrollment cancelled; payment refunded.' or 'Enrollment cancelled; refund requires review.', 'error')
     end
@@ -380,6 +387,7 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         {institutionId, courseId})
     if not examRevisionOk then
         enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[src] = nil
         local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam revision lookup failed')
         return notify(src, refunded and 'Enrollment cancelled; payment refunded.' or 'Enrollment cancelled; refund requires review.', 'error')
     end
@@ -401,11 +409,13 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
     local ok, id = pcall(MySQL.insert.await, insertSql, insertParams)
     if not ok or not id then
         enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[src] = nil
         local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Enrollment insert failed')
         return notify(src, refunded and 'Enrollment failed. Payment refunded.' or 'Enrollment failed. Refund requires administrator review.', 'error')
     end
     local completedOk, credited = pcall(paymentComplete, paymentId, id, institutionId, fee)
     enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[src] = nil
     if not completedOk or not credited then
         return notify(src, ('Enrollment #%s created; payment requires administrator reconciliation.'):format(id), 'error')
     end
@@ -570,8 +580,11 @@ end)
 
 AddEventHandler('playerDropped', function()
     activeExams[source] = nil
-    local _, citizenid = playerFor(source)
-    if citizenid then enrollmentLocks[citizenid] = nil end
+    local citizenid = enrollmentLockOwners[source]
+    if citizenid then
+        enrollmentLocks[citizenid] = nil
+        enrollmentLockOwners[source] = nil
+    end
 end)
 
 -- Instructor management is always validated on the server.
