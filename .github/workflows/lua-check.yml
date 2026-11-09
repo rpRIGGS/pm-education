@@ -109,7 +109,8 @@ jobs:
               'practical completion institution scope': 'FROM pm_education_practical_results WHERE enrollment_id = ? AND institution_id = ? AND course_id = ?',
               'credential completion transaction': 'MySQL.transaction.await(statements)',
               'payment ledger reconciliation failure': "Society credit for payment #%s needs manual ledger reconciliation",
-              'exam submission session consumption': 'activeExams[src] = nil -- consumed before first yielding database validation',
+              'exam submission session lock': 'session.submitting = true',
+              'exam result persistence before session consumption': '-- Persisted attempt is authoritative. Never accept the same session again.',
           }
           required_client = {
               'student progress refresh': 'Refresh progress',
