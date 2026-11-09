@@ -278,8 +278,8 @@ local function courseProgress(enrollmentId, course, institutionId, courseId)
     end
     local practical = {}
     local rows = MySQL.query.await(
-        'SELECT requirement_id, result FROM pm_education_practical_results WHERE enrollment_id = ? ORDER BY id DESC',
-        { enrollmentId })
+        'SELECT requirement_id, result FROM pm_education_practical_results WHERE enrollment_id = ? AND institution_id = ? AND course_id = ? ORDER BY id DESC',
+        { enrollmentId, institutionId, courseId })
     if not rows then error('Practical evaluation database unavailable') end
     for _, row in ipairs(rows) do
         if practical[row.requirement_id] == nil then practical[row.requirement_id] = row.result end
