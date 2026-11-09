@@ -797,7 +797,8 @@ end)
 RegisterNetEvent('pm-education:server:cancelExam', function(institutionId, courseId)
     local src = source
     local session = activeExams[src]
-    if not session or session.institutionId ~= institutionId or session.courseId ~= courseId then return end
+    if not session or session.pending or session.submitting or
+        session.institutionId ~= institutionId or session.courseId ~= courseId then return end
     local _, citizenid = playerFor(src)
     if citizenid ~= session.citizenid then return end
     activeExams[src] = nil
