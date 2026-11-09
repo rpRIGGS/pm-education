@@ -338,8 +338,11 @@ end
 RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId, paymentMethod)
     local src = source
     local player, citizenid = playerFor(src)
-    local course = getCourse(institutionId, courseId)
-    if not player or not course or not nearInteraction(src, institutionId, 'admissions') then return end
+    if not player or not nearInteraction(src, institutionId, 'admissions') then return end
+    local courseOk, course = pcall(getCourse, institutionId, courseId)
+    if not courseOk or not course then
+        return notify(src, 'Admissions curriculum unavailable. No fee charged.', 'error')
+    end
     if enrollmentLocks[citizenid] then return end
     enrollmentLocks[citizenid] = true
     enrollmentLockOwners[src] = citizenid
