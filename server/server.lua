@@ -465,7 +465,8 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         activeExams[src] = nil
         return notify(src, ok and 'You must have an active enrollment.' or 'Enrollment database unavailable.', 'error')
     end
-    course = getCourse(institutionId, courseId, record.id)
+    local courseOk, assignedCourse = pcall(getCourse, institutionId, courseId, record.id)
+    course = courseOk and assignedCourse or nil
     if not course then
         activeExams[src] = nil
         return notify(src, 'Assigned curriculum unavailable. No fee charged.', 'error')
