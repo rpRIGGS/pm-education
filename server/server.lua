@@ -646,7 +646,9 @@ RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, 
  if type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 or
     type(requirementId) ~= 'string' or
     (result ~= 'pass' and result ~= 'fail' and result ~= 'incomplete') or
-    type(notes) ~= 'string' or #notes > 1000 then return end
+    (notes ~= nil and type(notes) ~= 'string') then return end
+ notes = notes or ''
+ if #notes > 1000 then return end
  local record = MySQL.single.await(
   "SELECT citizenid, course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND status IN ('enrolled','in_progress')",
   {enrollmentId, institutionId})
