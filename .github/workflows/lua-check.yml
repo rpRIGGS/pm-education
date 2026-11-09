@@ -93,6 +93,44 @@ jobs:
                   sys.exit('POST deployment placeholder changed unexpectedly: ' + token)
           print('POST pilot course, practicals, client/server flows and safe placeholders verified')
           PY
+      - name: Verify POST payment, exam and assessment safety contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          server = Path('server/server.lua').read_text(encoding='utf-8')
+          client = Path('client/main.lua').read_text(encoding='utf-8')
+          readiness = Path('server/post_readiness.lua').read_text(encoding='utf-8')
+          required_server = {
+              'disconnect enrollment lock ownership': 'enrollmentLockOwners[source]',
+              'exam lookup failure isolation': 'pcall(getQuestions, institutionId, courseId, record.id)',
+              'exam curriculum failure isolation': 'pcall(getCourse, institutionId, courseId, record.id)',
+              'practical completion institution scope': 'FROM pm_education_practical_results WHERE enrollment_id = ? AND institution_id = ? AND course_id = ?',
+              'credential completion transaction': 'MySQL.transaction.await(statements)',
+              'payment ledger reconciliation failure': "Society credit for payment #%s needs manual ledger reconciliation",
+              'exam submission session consumption': 'activeExams[src] = nil -- consumed before first yielding database validation',
+          }
+          required_client = {
+              'student progress refresh': 'Refresh progress',
+              'instructor assessment history': 'Practical Assessment History',
+              'completed assessment read-only': "disabled = student.status ~= 'enrolled' and student.status ~= 'in_progress'",
+              'credential roster refresh': 'Refresh student roster',
+              'instructor roster refresh': 'Refresh instructor roster',
+          }
+          required_readiness = {
+              'POST console-only command': "RegisterCommand('pm_education_post_check'",
+              'POST examiner course check': "examinerOffers(institution.examiners, 'post_basic')",
+              'POST practical requirements': 'POST practical requirements configured',
+          }
+          for group, source, checks in (
+              ('server', server, required_server),
+              ('client', client, required_client),
+              ('readiness', readiness, required_readiness),
+          ):
+              for label, token in checks.items():
+                  if token not in source:
+                      raise SystemExit(f'Missing POST {group} safety contract: {label}')
+          print('POST payment, exam, assessment, permissions UI and readiness contracts verified')
+          PY
       - name: Verify resource entrypoints
         run: |
           test -f fxmanifest.lua
