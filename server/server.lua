@@ -758,6 +758,11 @@ RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, 
             if requirement.id == requirementId then valid = true break end
         end
         if not valid then return notify(src, 'Requirement is not part of the assigned curriculum.', 'error') end
+        -- Authorization must still hold after the yielding enrollment and curriculum
+        -- lookups; an instructor can move away or lose their role meanwhile.
+        if not instructorAuthorized(src, institutionId) then
+            return notify(src, 'Instructor authorization expired; evaluation not saved.', 'error')
+        end
         local examiner = QBCore.Functions.GetPlayer(src)
         if not examiner then return end
         local inserted = MySQL.insert.await(
