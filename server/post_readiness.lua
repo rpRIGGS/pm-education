@@ -50,6 +50,14 @@ RegisterCommand('pm_education_post_check', function(source)
         { 'instructor job rules', countRules(institution.staffJobs) > 0 },
         { 'credential administrator job rules', countRules(institution.credentialAdminJobs) > 0 },
         { 'POST basic offering', institution.courses and institution.courses.post_basic ~= nil },
+        { 'POST basic credential configured', institution.courses and institution.courses.post_basic and
+            type(institution.courses.post_basic.credentialId) == 'string' and
+            institution.courses.post_basic.credentialId ~= '' },
+        { 'POST written assessment required', institution.courses and institution.courses.post_basic and
+            institution.courses.post_basic.requireWritten == true },
+        { 'POST practical requirements configured', institution.courses and institution.courses.post_basic and
+            type(institution.courses.post_basic.practicalRequirements) == 'table' and
+            #institution.courses.post_basic.practicalRequirements > 0 },
     }
     local passed = 0
     for _, check in ipairs(checks) do
