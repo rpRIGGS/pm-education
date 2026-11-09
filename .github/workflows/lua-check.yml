@@ -127,6 +127,10 @@ jobs:
               'exam submit session cleanup': 'if activeExams[src] == session then activeExams[src] = nil end',
               'practical reauthorization after queries': 'Instructor authorization expired; evaluation not saved.',
               'missing pinned curriculum exam recovery': 'Assigned curriculum unavailable. Your paid exam will reopen without a new charge.',
+              'enrollment lock token': 'local lockToken = {}',
+              'enrollment lock ownership': 'if enrollmentLocks[citizenid] == lockToken then enrollmentLocks[citizenid] = nil end',
+              'enrollment disconnect refund': 'Enrollment abandoned after debit',
+              'enrollment disconnect owner cleanup': 'if enrollmentLocks[owner.citizenid] == owner.token then',
           }
           required_client = {
               'student progress refresh': 'Refresh progress',
