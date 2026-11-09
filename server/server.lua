@@ -429,9 +429,21 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         ') VALUES (' .. table.concat(placeholders, ', ') .. ')'
     local ok, id = pcall(MySQL.insert.await, insertSql, insertParams)
     if not ok or not id then
-        releaseLock()
-        local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Enrollment insert failed')
-        return notify(src, refunded and 'Enrollment failed. Payment refunded.' or 'Enrollment failed. Refund requires administrator review.', 'error')
+        -- A failed/timeout insert may have committed before the response was lost.
+        -- Verify by citizen/course before issuing a refund or retrying the charge.
+        local verifiedOk, verified = pcall(enrollment, citizenid, institutionId, courseId)
+        if verifiedOk and verified and verified.id then
+            id = verified.id
+            print(('[pm-education] Enrollment insert response uncertain; recovered enrollment #%s for payment #%s'):format(id, paymentId))
+        else
+            releaseLock()
+            if not verifiedOk then
+                paymentStatus(paymentId, 'charged', 'Enrollment insert uncertain; lookup unavailable. Manual reconciliation required')
+                return notify(src, 'Enrollment outcome uncertain. Administrator review required; do not repay.', 'error')
+            end
+            local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Enrollment insert not found after failure')
+            return notify(src, refunded and 'Enrollment failed. Payment refunded.' or 'Enrollment failed. Refund requires administrator review.', 'error')
+        end
     end
     -- A successful insert is durable even if the player disconnects while SQL yields.
     -- Complete the ledger for that enrollment rather than refunding a valid purchase.
