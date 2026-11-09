@@ -81,6 +81,11 @@ local function showStudentProgress(institutionId, record)
             disabled = true
         }
     end
+    options[#options + 1] = {
+        title = 'Refresh progress',
+        description = 'Retrieve the latest written exam and instructor practical results',
+        onSelect = function() showStudentProgress(institutionId, record) end
+    }
     lib.registerContext({
         id = 'pm_education_student_progress',
         title = record.courseLabel,
