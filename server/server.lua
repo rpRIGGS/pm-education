@@ -450,8 +450,11 @@ end)
 RegisterNetEvent('pm-education:server:requestExam', function(institutionId, courseId, paymentMethod)
     local src = source
     local player, citizenid = playerFor(src)
-    local course = getCourse(institutionId, courseId)
-    if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId) then return end
+    if not player or not nearInteraction(src, institutionId, 'examiners', courseId) then return end
+    local courseOk, course = pcall(getCourse, institutionId, courseId)
+    if not courseOk or not course then
+        return notify(src, 'Examination course unavailable. No fee charged.', 'error')
+    end
     if activeExams[src] and os.time() - activeExams[src].started <= 1800 then
         return notify(src, 'An exam is already active or starting.', 'error')
     end
