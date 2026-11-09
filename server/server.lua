@@ -245,6 +245,7 @@ local function paymentComplete(paymentId, enrollmentId, institutionId, amount)
         { enrollmentId, 'Society credited: ' .. account, paymentId })
     if not ok or not changed or changed < 1 then
         print(('[pm-education] Society credit for payment #%s needs manual ledger reconciliation; DO NOT credit again'):format(paymentId))
+        return false
     end
     return true
 end
