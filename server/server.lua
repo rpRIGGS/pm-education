@@ -3,6 +3,7 @@ local activeExams = {}
 local enrollmentLocks = {}
 local enrollmentLockOwners = {} -- source -> citizenid; survives player object disappearing on disconnect
 local credentialLocks = {}
+local practicalLocks = {} -- enrollment id -> evaluation in progress
 
 local function getQuestions(institutionId, courseId, enrollmentId)
     local legacy = EducationQuestions and EducationQuestions[institutionId] and EducationQuestions[institutionId][courseId] or {}
@@ -691,36 +692,49 @@ lib.callback.register('pm-education:server:instructorResults', function(src, ins
 end)
 
 RegisterNetEvent('pm-education:server:recordPractical', function(institutionId, enrollmentId, requirementId, result, notes)
- local src = source
- if not instructorAuthorized(src, institutionId) then return end
- if type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 or
-    type(requirementId) ~= 'string' or
-    (result ~= 'pass' and result ~= 'fail' and result ~= 'incomplete') or
-    (notes ~= nil and type(notes) ~= 'string') then return end
- notes = notes or ''
- if #notes > 1000 then return end
- local record = MySQL.single.await(
-  "SELECT citizenid, course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND status IN ('enrolled','in_progress')",
-  {enrollmentId, institutionId})
- if not record then return notify(src, 'Student is not actively enrolled.', 'error') end
- local course = getCourse(institutionId, record.course_id, enrollmentId)
- local valid = false
- for _, requirement in ipairs(course and course.practicalRequirements or {}) do
-  if requirement.id == requirementId then valid = true break end
- end
- if not valid then return end
- local examiner = QBCore.Functions.GetPlayer(src)
- if not examiner then return end
- local ok, inserted = pcall(MySQL.insert.await,
-  'INSERT INTO pm_education_practical_results (enrollment_id, citizenid, institution_id, course_id, requirement_id, result, notes, examiner_citizenid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-  {enrollmentId, record.citizenid, institutionId, record.course_id, requirementId, result, notes, examiner.PlayerData.citizenid})
- if not ok or not inserted then return notify(src, 'Evaluation could not be saved.', 'error') end
- local refreshed, progress = pcall(refreshCompletion, enrollmentId, institutionId, record.course_id)
- if not refreshed or not progress then
-  print(('[pm-education] Practical result #%s saved; completion refresh failed or returned no progress for enrollment #%s'):format(inserted, enrollmentId))
-  return notify(src, 'Evaluation saved, but completion needs administrator review.', 'error')
- end
- notify(src, progress and progress.complete and 'Evaluation saved. All course requirements complete.' or 'Instructor evaluation recorded.', 'success')
+    local src = source
+    if not instructorAuthorized(src, institutionId) then return end
+    if type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 or enrollmentId < 1 or
+        type(requirementId) ~= 'string' or
+        (result ~= 'pass' and result ~= 'fail' and result ~= 'incomplete') or
+        (notes ~= nil and type(notes) ~= 'string') then return end
+    notes = notes or ''
+    if #notes > 1000 then return end
+    -- Serialize instructor evaluations per enrollment across yielding SQL calls.
+    -- This prevents conflicting final evaluations and credential completion races.
+    if practicalLocks[enrollmentId] then
+        return notify(src, 'Another evaluation is being recorded for this student. Please retry.', 'error')
+    end
+    practicalLocks[enrollmentId] = true
+    local ok, err = pcall(function()
+        local record = MySQL.single.await(
+            "SELECT citizenid, course_id FROM pm_education_enrollments WHERE id = ? AND institution_id = ? AND status IN ('enrolled','in_progress')",
+            {enrollmentId, institutionId})
+        if not record then return notify(src, 'Student is not actively enrolled.', 'error') end
+        local course = getCourse(institutionId, record.course_id, enrollmentId)
+        local valid = false
+        for _, requirement in ipairs(course and course.practicalRequirements or {}) do
+            if requirement.id == requirementId then valid = true break end
+        end
+        if not valid then return notify(src, 'Requirement is not part of the assigned curriculum.', 'error') end
+        local examiner = QBCore.Functions.GetPlayer(src)
+        if not examiner then return end
+        local inserted = MySQL.insert.await(
+            'INSERT INTO pm_education_practical_results (enrollment_id, citizenid, institution_id, course_id, requirement_id, result, notes, examiner_citizenid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            {enrollmentId, record.citizenid, institutionId, record.course_id, requirementId, result, notes, examiner.PlayerData.citizenid})
+        if not inserted then return notify(src, 'Evaluation could not be saved.', 'error') end
+        local refreshed, progress = pcall(refreshCompletion, enrollmentId, institutionId, record.course_id)
+        if not refreshed or not progress then
+            print(('[pm-education] Practical result #%s saved; completion refresh failed for enrollment #%s'):format(inserted, enrollmentId))
+            return notify(src, 'Evaluation saved, but completion needs administrator review.', 'error')
+        end
+        notify(src, progress.complete and 'Evaluation saved. All course requirements complete.' or 'Instructor evaluation recorded.', 'success')
+    end)
+    practicalLocks[enrollmentId] = nil
+    if not ok then
+        print(('[pm-education] Practical evaluation failed for enrollment #%s: %s'):format(enrollmentId, tostring(err)))
+        notify(src, 'Evaluation could not be completed. Check the server logs.', 'error')
+    end
 end)
 
 lib.callback.register('pm-education:server:courseProgress', function(src, institutionId, enrollmentId)
