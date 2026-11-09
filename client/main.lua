@@ -333,6 +333,7 @@ local function manageStudentCredentials(institutionId, student)
                             local ok, message = lib.callback.await('pm-education:server:setCredentialStatus', false,
                                 institutionId, selected.id, input[1], input[2])
                             notify(message or (ok and 'Updated' or 'Update failed'), ok and 'success' or 'error')
+                            if ok then manageStudentCredentials(institutionId, student) end
                         end
                     }
                 }
