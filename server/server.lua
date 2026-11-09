@@ -475,22 +475,22 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     end
     local ok, record = pcall(enrollment, citizenid, institutionId, courseId)
     if not ok or not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress') then
-        activeExams[src] = nil
+        if activeExams[src] == pendingSession then activeExams[src] = nil end
         return notify(src, ok and 'You must have an active enrollment.' or 'Enrollment database unavailable.', 'error')
     end
     local courseOk, assignedCourse = pcall(getCourse, institutionId, courseId, record.id)
     course = courseOk and assignedCourse or nil
     if not course then
-        activeExams[src] = nil
+        if activeExams[src] == pendingSession then activeExams[src] = nil end
         return notify(src, 'Assigned curriculum unavailable. No fee charged.', 'error')
     end
     if course.requireWritten == false then
-        activeExams[src] = nil
+        if activeExams[src] == pendingSession then activeExams[src] = nil end
         return notify(src, 'This course does not require a written examination.', 'error')
     end
     local questionsOk, selectedQuestions, revisionId, catalogError = pcall(getQuestions, institutionId, courseId, record.id)
     if not questionsOk or catalogError or type(selectedQuestions) ~= 'table' or #selectedQuestions == 0 then
-        activeExams[src] = nil
+        if activeExams[src] == pendingSession then activeExams[src] = nil end
         return notify(src, 'Assigned examination unavailable. No fee charged.', 'error')
     end
     local questions = {}
@@ -500,13 +500,13 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
             type(question.answers) ~= 'table' or #question.answers < 2 or
             type(question.correct) ~= 'number' or
             question.correct % 1 ~= 0 or question.correct < 1 or question.correct > #question.answers then
-            activeExams[src] = nil
+            if activeExams[src] == pendingSession then activeExams[src] = nil end
             return notify(src, ('Question bank entry %d is invalid; no exam fee charged.'):format(index), 'error')
         end
         local answers = {}
         for answerIndex, label in ipairs(question.answers) do
             if type(label) ~= 'string' or label == '' then
-                activeExams[src] = nil
+                if activeExams[src] == pendingSession then activeExams[src] = nil end
                 return notify(src, ('Question bank answer %d:%d is invalid; no exam fee charged.'):format(index, answerIndex), 'error')
             end
             answers[answerIndex] = label
@@ -516,7 +516,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     end
     local threshold = tonumber(course.passPercent)
     if not threshold or threshold < 0 or threshold > 100 then
-        activeExams[src] = nil
+        if activeExams[src] == pendingSession then activeExams[src] = nil end
         return notify(src, 'Exam passing threshold is not configured correctly; no fee charged.', 'error')
     end
     -- A disconnect or reused source during yielding catalog queries must never
@@ -525,7 +525,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local fee = course.examFee or 0
     local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, record.id, 'exam', fee, paymentMethod)
     if not paid or not paymentId then
-        activeExams[src] = nil
+        if activeExams[src] == pendingSession then activeExams[src] = nil end
         return notify(src, paid and paymentError or 'Payment failed; review ledger before retrying.', 'error')
     end
     if not stillOwner() then
@@ -542,7 +542,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         -- MySQL may return zero affected rows for an already in-progress enrollment.
         local verifyOk, verified = pcall(enrollment, citizenid, institutionId, courseId)
         if not verifyOk or not verified or verified.id ~= record.id or verified.status ~= 'in_progress' then
-            activeExams[src] = nil
+            if activeExams[src] == pendingSession then activeExams[src] = nil end
             local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam enrollment validation failed')
             return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam failed. Refund needs administrator review.', 'error')
         end
