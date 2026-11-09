@@ -526,7 +526,7 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
             return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam failed. Refund needs administrator review.', 'error')
         end
     end
-    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey, passPercent = threshold, catalogRevisionId = revisionId }
+    activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey, questions = questions, passPercent = threshold, catalogRevisionId = revisionId }
     local completedOk, credited = pcall(paymentComplete, paymentId, record.id, institutionId, fee)
     if not completedOk or not credited then
         notify(src, 'Exam started; society payment requires administrator reconciliation.', 'error')
@@ -586,7 +586,11 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local ok, saved = pcall(MySQL.insert.await, attemptSql, attemptParams)
     if not ok or not saved then
         session.submitting = false
-        return notify(src, 'Exam results could not be saved. Retry submission while your exam session is active.', 'error')
+        notify(src, 'Exam results could not be saved. Your paid session is still active; the examination will reopen for another submission.', 'error')
+        if activeExams[src] == session and session.questions then
+            TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)
+        end
+        return
     end
     -- Persisted attempt is authoritative. Never accept the same session again.
     activeExams[src] = nil
