@@ -593,7 +593,14 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
         return
     end
     local answerKey = session.answerKey or {}
-    if not course or type(answers) ~= 'table' or #answerKey == 0 or #answers ~= #answerKey then
+    if not course then
+        notify(src, 'Assigned curriculum unavailable. Your paid exam will reopen without a new charge.', 'error')
+        if stillOwner() and session.questions then
+            TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)
+        end
+        return
+    end
+    if type(answers) ~= 'table' or #answerKey == 0 or #answers ~= #answerKey then
         return notify(src, 'Invalid examination submission. The active session was not consumed.', 'error')
     end
     for index, question in ipairs(answerKey) do
