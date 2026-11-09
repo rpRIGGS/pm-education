@@ -115,6 +115,9 @@ jobs:
               'cancel rejects in-flight submission': 'if not session or session.pending or session.submitting or',
               'curriculum lookup recovery': 'Assigned curriculum temporarily unavailable. Your paid exam will reopen without a new charge.',
               'exam retry does not start new payment': 'questions = questions, passPercent = threshold',
+              'practical evaluation lock': 'if practicalLocks[enrollmentId] then',
+              'practical lock cleanup': 'practicalLocks[enrollmentId] = nil',
+              'practical failure isolation': "Practical evaluation failed for enrollment #%s",
           }
           required_client = {
               'student progress refresh': 'Refresh progress',
