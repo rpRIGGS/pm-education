@@ -231,7 +231,7 @@ local function showExaminer(institutionId, examiner)
     for _, courseId in ipairs(examiner.courses or {}) do offered[courseId] = true end
     local options = {}
     for _, course in ipairs(courses) do
-        if offered[course.id] then
+        if offered[course.id] and course.requireWritten ~= false then
             local selected = course
             options[#options + 1] = {
                 title = selected.label,
