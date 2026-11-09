@@ -70,7 +70,7 @@ RegisterCommand('pm_education_post_check', function(source)
             institution.courses.post_basic.credentialId ~= '' },
         { 'POST written assessment required', institution.courses and institution.courses.post_basic and
             institution.courses.post_basic.requireWritten == true },
-        { 'POST legacy written question bank populated', approvedWrittenBank() },
+        { 'POST legacy written question bank populated (published exam can substitute)', approvedWrittenBank() },
         { 'POST practical requirements configured', institution.courses and institution.courses.post_basic and
             type(institution.courses.post_basic.practicalRequirements) == 'table' and
             #institution.courses.post_basic.practicalRequirements > 0 },
