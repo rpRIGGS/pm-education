@@ -578,11 +578,16 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
         activeExams[src] = nil
         return
     end
+    local function stillOwner()
+        local currentPlayer = QBCore.Functions.GetPlayer(src)
+        return activeExams[src] == session and currentPlayer and
+            currentPlayer.PlayerData.citizenid == citizenid
+    end
     local courseOk, course = pcall(getCourse, institutionId, courseId, session.enrollmentId)
     if not courseOk then
         print(('[pm-education] Exam submission curriculum lookup failed: %s'):format(tostring(course)))
         notify(src, 'Assigned curriculum temporarily unavailable. Your paid exam will reopen without a new charge.', 'error')
-        if activeExams[src] == session and session.questions then
+        if stillOwner() and session.questions then
             TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)
         end
         return
@@ -604,14 +609,15 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     if not enrolledOk then
         session.submitting = false
         notify(src, 'Enrollment database unavailable. Your paid exam will reopen without a new charge.', 'error')
-        if activeExams[src] == session and session.questions then
+        if stillOwner() and session.questions then
             TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)
         end
         return
     end
+    if not stillOwner() then return end
     if not current or current.id ~= session.enrollmentId or
         (current.status ~= 'enrolled' and current.status ~= 'in_progress') then
-        activeExams[src] = nil
+        if activeExams[src] == session then activeExams[src] = nil end
         return notify(src, 'Exam enrollment is no longer active.', 'error')
     end
     local correct = 0
@@ -630,13 +636,13 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     if not ok or not saved then
         session.submitting = false
         notify(src, 'Exam results could not be saved. Your paid session is still active; the examination will reopen for another submission.', 'error')
-        if activeExams[src] == session and session.questions then
+        if stillOwner() and session.questions then
             TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)
         end
         return
     end
     -- Persisted attempt is authoritative. Never accept the same session again.
-    activeExams[src] = nil
+    if activeExams[src] == session then activeExams[src] = nil end
     if passed then
         local completionOk, completionError = pcall(refreshCompletion, session.enrollmentId, institutionId, courseId)
         if not completionOk or not completionError then
@@ -644,7 +650,10 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
             return notify(src, 'Exam passed and saved, but credential completion needs administrator review.', 'error')
         end
     end
-    notify(src, ('Exam %s: %d%%'):format(passed and 'passed' or 'failed', score), passed and 'success' or 'error')
+    local currentPlayer = QBCore.Functions.GetPlayer(src)
+    if currentPlayer and currentPlayer.PlayerData.citizenid == citizenid then
+        notify(src, ('Exam %s: %d%%'):format(passed and 'passed' or 'failed', score), passed and 'success' or 'error')
+    end
 end)
 
 AddEventHandler('playerDropped', function()
