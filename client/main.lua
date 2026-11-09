@@ -452,6 +452,10 @@ local function openCredentialAdministration(institutionId)
   }
  end
  if #options == 0 then options[1] = {title = 'No student enrollments', disabled = true} end
+ options[#options + 1] = {
+  title = 'Refresh student roster',
+  onSelect = function() openCredentialAdministration(institutionId) end
+ }
  lib.registerContext({id = 'pm_education_credential_admin_students', title = 'Credential Administration', options = options})
  lib.showContext('pm_education_credential_admin_students')
 end
@@ -503,6 +507,10 @@ local function openInstructorManagement(institutionId)
   }
  end
  if #students == 0 then options[#options + 1] = { title = 'No active students', disabled = true } end
+ options[#options + 1] = {
+  title = 'Refresh instructor roster',
+  onSelect = function() openInstructorManagement(institutionId) end
+ }
  lib.registerContext({ id = 'pm_education_instructor_management', title = 'Instructor Management', options = options })
  lib.showContext('pm_education_instructor_management')
 end
