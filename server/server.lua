@@ -466,7 +466,13 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     -- Uncertain payments remain protected separately by the durable payment ledger.
     if activeExams[src] then activeExams[src] = nil end
     -- Lock before any yielding database or payment call; rapid repeated events cannot double-charge.
-    activeExams[src] = { pending = true, started = os.time() }
+    local pendingSession = { pending = true, started = os.time(), citizenid = citizenid }
+    activeExams[src] = pendingSession
+    local function stillOwner()
+        local current = QBCore.Functions.GetPlayer(src)
+        return activeExams[src] == pendingSession and current and
+            current.PlayerData.citizenid == citizenid
+    end
     local ok, record = pcall(enrollment, citizenid, institutionId, courseId)
     if not ok or not record or (record.status ~= 'enrolled' and record.status ~= 'in_progress') then
         activeExams[src] = nil
@@ -513,11 +519,21 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
         activeExams[src] = nil
         return notify(src, 'Exam passing threshold is not configured correctly; no fee charged.', 'error')
     end
+    -- A disconnect or reused source during yielding catalog queries must never
+    -- debit the next occupant of this server source.
+    if not stillOwner() then return end
     local fee = course.examFee or 0
     local paid, paymentId, paymentError = pcall(paymentStart, player, citizenid, institutionId, courseId, record.id, 'exam', fee, paymentMethod)
     if not paid or not paymentId then
         activeExams[src] = nil
         return notify(src, paid and paymentError or 'Payment failed; review ledger before retrying.', 'error')
+    end
+    if not stillOwner() then
+        local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam request abandoned after debit')
+        if not refunded then
+            print(('[pm-education] Abandoned exam payment #%s needs refund reconciliation'):format(paymentId))
+        end
+        return
     end
     local updated, affected = pcall(MySQL.update.await,
         "UPDATE pm_education_enrollments SET status = 'in_progress' WHERE id = ? AND citizenid = ? AND status IN ('enrolled','in_progress')",
@@ -530,6 +546,13 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
             local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam enrollment validation failed')
             return notify(src, refunded and 'Exam failed to start. Payment refunded.' or 'Exam failed. Refund needs administrator review.', 'error')
         end
+    end
+    if not stillOwner() then
+        local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Exam request abandoned before session activation')
+        if not refunded then
+            print(('[pm-education] Abandoned exam payment #%s needs refund reconciliation'):format(paymentId))
+        end
+        return
     end
     activeExams[src] = { institutionId = institutionId, courseId = courseId, enrollmentId = record.id, citizenid = citizenid, started = os.time(), paymentId = paymentId, answerKey = answerKey, questions = questions, passPercent = threshold, catalogRevisionId = revisionId }
     local completedOk, credited = pcall(paymentComplete, paymentId, record.id, institutionId, fee)
