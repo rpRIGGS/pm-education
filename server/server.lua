@@ -364,7 +364,7 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         if not questionsOk or questionError or type(questions) ~= 'table' or
             (course.requireWritten == true and #questions == 0) then
             enrollmentLocks[citizenid] = nil
-        enrollmentLockOwners[src] = nil
+            enrollmentLockOwners[src] = nil
             return notify(src, 'This course has no available approved written examination. No fee charged.', 'error')
         end
     end
@@ -419,7 +419,7 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
     end
     local completedOk, credited = pcall(paymentComplete, paymentId, id, institutionId, fee)
     enrollmentLocks[citizenid] = nil
-        enrollmentLockOwners[src] = nil
+    enrollmentLockOwners[src] = nil
     if not completedOk or not credited then
         return notify(src, ('Enrollment #%s created; payment requires administrator reconciliation.'):format(id), 'error')
     end
