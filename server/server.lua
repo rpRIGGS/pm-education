@@ -433,6 +433,8 @@ RegisterNetEvent('pm-education:server:enroll', function(institutionId, courseId,
         local refunded = paymentRefund(player, paymentId, fee, paymentMethod, 'Enrollment insert failed')
         return notify(src, refunded and 'Enrollment failed. Payment refunded.' or 'Enrollment failed. Refund requires administrator review.', 'error')
     end
+    -- A successful insert is durable even if the player disconnects while SQL yields.
+    -- Complete the ledger for that enrollment rather than refunding a valid purchase.
     local completedOk, credited = pcall(paymentComplete, paymentId, id, institutionId, fee)
     releaseLock()
     local current = QBCore.Functions.GetPlayer(src)
