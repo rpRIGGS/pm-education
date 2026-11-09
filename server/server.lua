@@ -557,11 +557,18 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
             return notify(src, 'Invalid answer selection. The active session was not consumed.', 'error')
         end
     end
+    -- Keep the session locked through the yielding insert. A database outage must
+    -- not silently consume a paid attempt, and duplicate client submissions must
+    -- not create multiple results.
     session.submitting = true
-    activeExams[src] = nil -- consumed before first yielding database validation
     local enrolledOk, current = pcall(enrollment, citizenid, institutionId, courseId)
-    if not enrolledOk or not current or current.id ~= session.enrollmentId or
+    if not enrolledOk then
+        session.submitting = false
+        return notify(src, 'Enrollment database unavailable. Retry your active examination.', 'error')
+    end
+    if not current or current.id ~= session.enrollmentId or
         (current.status ~= 'enrolled' and current.status ~= 'in_progress') then
+        activeExams[src] = nil
         return notify(src, 'Exam enrollment is no longer active.', 'error')
     end
     local correct = 0
@@ -578,8 +585,11 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     if session.catalogRevisionId then attemptParams[#attemptParams + 1] = session.catalogRevisionId end
     local ok, saved = pcall(MySQL.insert.await, attemptSql, attemptParams)
     if not ok or not saved then
-        return notify(src, 'Exam results could not be saved. Contact an administrator.', 'error')
+        session.submitting = false
+        return notify(src, 'Exam results could not be saved. Retry submission while your exam session is active.', 'error')
     end
+    -- Persisted attempt is authoritative. Never accept the same session again.
+    activeExams[src] = nil
     if passed then
         local completionOk, completionError = pcall(refreshCompletion, session.enrollmentId, institutionId, courseId)
         if not completionOk or not completionError then
