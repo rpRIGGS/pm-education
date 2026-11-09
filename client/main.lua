@@ -124,6 +124,44 @@ local function loadCourses(institutionId)
     return courses
 end
 
+-- Course information is visible before the student commits to enrollment.
+-- Practical requirements are instructor-evaluated, not automatic game objectives.
+local function showCoursePreview(institutionId, course)
+    local options = {
+        {title = 'Enrollment fee', description = ('$%d'):format(course.enrollmentFee or 0), disabled = true},
+        {title = 'Written examination', description = course.requireWritten == false and 'Not required' or 'Required', disabled = true},
+        {title = 'Exam fee', description = ('$%d'):format(course.examFee or 0), disabled = true},
+        {title = 'Passing threshold', description = ('%s%%'):format(tostring(course.passPercent or 'Pending')), disabled = true}
+    }
+    local practicals = course.practicalRequirements or {}
+    if #practicals == 0 then
+        options[#options + 1] = {title = 'Practical assessments', description = 'None configured', disabled = true}
+    else
+        for index, requirement in ipairs(practicals) do
+            options[#options + 1] = {
+                title = ('Practical %d: %s'):format(index, requirement.label),
+                description = 'Evaluated and recorded by an authorized instructor',
+                disabled = true
+            }
+        end
+    end
+    options[#options + 1] = {
+        title = 'Request enrollment',
+        description = 'Enrollment is subject to course and examination readiness checks.',
+        onSelect = function()
+            local method = choosePaymentMethod('Course enrollment', course.enrollmentFee or 0)
+            if method then TriggerServerEvent('pm-education:server:enroll', institutionId, course.id, method) end
+        end
+    }
+    lib.registerContext({
+        id = 'pm_education_course_preview',
+        title = course.label,
+        menu = 'pm_education_admissions',
+        options = options
+    })
+    lib.showContext('pm_education_course_preview')
+end
+
 local function showAdmissions(institutionId)
     local institution = Config.Institutions[institutionId]
     local courses = loadCourses(institutionId)
@@ -134,10 +172,7 @@ local function showAdmissions(institutionId)
         options[#options + 1] = {
             title = selected.label,
             description = ('Enrollment fee: $%d'):format(selected.enrollmentFee or 0),
-            onSelect = function()
-                local method = choosePaymentMethod('Course enrollment', selected.enrollmentFee)
-                if method then TriggerServerEvent('pm-education:server:enroll', institutionId, selected.id, method) end
-            end
+            onSelect = function() showCoursePreview(institutionId, selected) end
         }
     end
     if #courses == 0 then
