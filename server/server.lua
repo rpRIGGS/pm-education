@@ -700,6 +700,37 @@ lib.callback.register('pm-education:server:myCourseProgress', function(src, inst
     return progress
 end)
 
+-- Student-facing practical checklist: only the enrollment owner may read results.
+-- Instructor notes and identities are intentionally not exposed here.
+lib.callback.register('pm-education:server:myPracticalChecklist', function(src, institutionId, enrollmentId)
+    local _, citizenid = playerFor(src)
+    if not citizenid or type(institutionId) ~= 'string' or
+        type(enrollmentId) ~= 'number' or enrollmentId % 1 ~= 0 then return nil end
+    local record = MySQL.single.await(
+        'SELECT course_id FROM pm_education_enrollments WHERE id = ? AND citizenid = ? AND institution_id = ?',
+        {enrollmentId, citizenid, institutionId})
+    if not record then return nil end
+    local course = getCourse(institutionId, record.course_id, enrollmentId)
+    if not course then return nil end
+    local results = MySQL.query.await(
+        'SELECT requirement_id, result FROM pm_education_practical_results WHERE enrollment_id = ? ORDER BY id DESC',
+        {enrollmentId})
+    if not results then return nil end
+    local latest = {}
+    for _, row in ipairs(results) do
+        if latest[row.requirement_id] == nil then latest[row.requirement_id] = row.result end
+    end
+    local checklist = {}
+    for _, requirement in ipairs(course.practicalRequirements or {}) do
+        checklist[#checklist + 1] = {
+            id = requirement.id,
+            label = requirement.label,
+            result = latest[requirement.id] or 'not_evaluated'
+        }
+    end
+    return checklist
+end)
+
 -- Read-only verification: no license, rank, job or government authorization is granted.
 exports('HasCredential', function(citizenid, credentialId)
     if type(citizenid) ~= 'string' or type(credentialId) ~= 'string' then return false end
