@@ -72,7 +72,8 @@ Config.Institutions.post = {
 }
 
 -- SAFR and SAMS share the POST enrollment/assessment/credential engine.
--- Real jobs, desks and examination content remain intentionally unset.
+-- The following course names, thresholds, practicals and credentials are PROVISIONAL.
+-- Real jobs, desks, approved curricula and examination content remain intentionally unset.
 Config.Institutions.safr = {
  label = 'San Andreas Fire & Rescue (SAFR)',
  enabled = true, -- No world interactions until configured below
