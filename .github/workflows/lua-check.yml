@@ -131,6 +131,8 @@ jobs:
               'enrollment lock ownership': 'if enrollmentLocks[citizenid] == lockToken then enrollmentLocks[citizenid] = nil end',
               'enrollment disconnect refund': 'Enrollment abandoned after debit',
               'enrollment disconnect owner cleanup': 'if enrollmentLocks[owner.citizenid] == owner.token then',
+              'uncertain enrollment insert recovery': 'Enrollment insert response uncertain; recovered enrollment',
+              'uncertain enrollment manual reconciliation': 'Enrollment insert uncertain; lookup unavailable. Manual reconciliation required',
           }
           required_client = {
               'student progress refresh': 'Refresh progress',
