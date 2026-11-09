@@ -1,7 +1,20 @@
 -- POST pilot deployment readiness, console-only and read-only.
 -- No exam keys, job names, or academy coordinates are fabricated by this check.
 local function configuredPoint(point)
-    return type(point) == 'table' and point.coords ~= nil
+    if type(point) ~= 'table' or not point.coords then return false end
+    local coords = point.coords
+    return type(coords.x) == 'number' and type(coords.y) == 'number' and type(coords.z) == 'number'
+end
+
+local function examinerOffers(points, courseId)
+    for _, point in ipairs(points or {}) do
+        if configuredPoint(point) then
+            for _, offered in ipairs(point.courses or {}) do
+                if offered == courseId then return true end
+            end
+        end
+    end
+    return false
 end
 
 local function countPoints(points)
@@ -32,7 +45,7 @@ RegisterCommand('pm_education_post_check', function(source)
     local checks = {
         { 'institution enabled', institution.enabled ~= false },
         { 'admissions desk', countPoints(institution.admissions) > 0 },
-        { 'written examination desk', countPoints(institution.examiners) > 0 },
+        { 'written examination desk offering post_basic', examinerOffers(institution.examiners, 'post_basic') },
         { 'instructor management desk', countPoints(institution.management) > 0 },
         { 'instructor job rules', countRules(institution.staffJobs) > 0 },
         { 'credential administrator job rules', countRules(institution.credentialAdminJobs) > 0 },
