@@ -452,9 +452,12 @@ RegisterNetEvent('pm-education:server:requestExam', function(institutionId, cour
     local player, citizenid = playerFor(src)
     local course = getCourse(institutionId, courseId)
     if not player or not course or not nearInteraction(src, institutionId, 'examiners', courseId) then return end
-    if activeExams[src] and (activeExams[src].pending or os.time() - activeExams[src].started <= 1800) then
+    if activeExams[src] and os.time() - activeExams[src].started <= 1800 then
         return notify(src, 'An exam is already active or starting.', 'error')
     end
+    -- A stale pending session must not block the player permanently after a failed start.
+    -- Uncertain payments remain protected separately by the durable payment ledger.
+    if activeExams[src] then activeExams[src] = nil end
     -- Lock before any yielding database or payment call; rapid repeated events cannot double-charge.
     activeExams[src] = { pending = true, started = os.time() }
     local ok, record = pcall(enrollment, citizenid, institutionId, courseId)
