@@ -382,7 +382,10 @@ local function openInstructorStudent(institutionId, student)
   local selected = requirement
   options[#options + 1] = {
    title = selected.label,
-   description = 'Latest: ' .. (latest[selected.id] or 'Not evaluated'),
+   description = student.status == 'completed' and
+    ('Final result: ' .. (latest[selected.id] or 'Not evaluated')) or
+    ('Latest: ' .. (latest[selected.id] or 'Not evaluated')),
+   disabled = student.status ~= 'enrolled' and student.status ~= 'in_progress',
    onSelect = function()
     local input = lib.inputDialog('Evaluate: ' .. selected.label, {
      { type = 'select', label = 'Result', required = true, options = {
