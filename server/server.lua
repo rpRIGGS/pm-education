@@ -564,7 +564,11 @@ RegisterNetEvent('pm-education:server:submitExam', function(institutionId, cours
     local enrolledOk, current = pcall(enrollment, citizenid, institutionId, courseId)
     if not enrolledOk then
         session.submitting = false
-        return notify(src, 'Enrollment database unavailable. Retry your active examination.', 'error')
+        notify(src, 'Enrollment database unavailable. Your paid exam will reopen without a new charge.', 'error')
+        if activeExams[src] == session and session.questions then
+            TriggerClientEvent('pm-education:client:exam', src, institutionId, courseId, session.questions)
+        end
+        return
     end
     if not current or current.id ~= session.enrollmentId or
         (current.status ~= 'enrolled' and current.status ~= 'in_progress') then
