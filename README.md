@@ -1,20 +1,41 @@
 # PM Education
 
-**PM Education** is a planned expansion of [Mundstock's qb-university](https://github.com/mundstockGG/qb-university) for the **PowerMoves RP** QBCore FiveM server. The goal is a shared education, examination, and qualification system for universities, public-safety academies, government training offices, and civilian professions.
+**PM Education** is the PowerMoves RP QBCore shared education, academy and accreditation resource, forked from [Mundstock's qb-university](https://github.com/mundstockGG/qb-university).
 
-> **Development status:** This repository is a fork under development. The original university-style professor, enrollment, written examination, and certificate functionality forms the starting point. The broader features described below are **planned**, not a claim that they are already implemented.
+**Current status (2026-11-11): substantial source implementation, NOT verified development-server ready.** See the [current implementation inventory](development-reference/current-implementation-inventory.md) for the code-grounded feature matrix, institution-by-institution readiness and remaining work. The [POST acceptance checklist](development-reference/post-development-server-handoff.md) is a testing plan, not a record of passing tests.
 
-## What we're building
+## Implemented in source
 
-- **Independent institutions:** Sandy Shores University, POST, fire/rescue and medical academies, agency training divisions, DMV education, government offices, and vocational programs using one shared system.
-- **Configurable locations:** Multiple admissions NPCs, professor/examiner NPCs, and staff management interaction points at any number of facilities for each institution, with course and staff permissions.
-- **Enrollment and administration:** Course registration, fees, retakes, student course lookup, instructor results, progress, withdrawal, dismissal, reinstatement, and auditable administration.
-- **Written and instructor-assessed training:** Configurable questions, passing requirements, prerequisite courses, and authorized instructor entry of practical roleplay evaluations. External shooting and driving resources continue to conduct their own practical tests.
-- **Qualifications and accreditation:** Statewide or institution-specific examinations; permanent and renewable certifications; degrees, academy graduation, POST accreditation, specialized unit qualifications, and promotional-exam results.
-- **Persistent records:** SQL-based enrollment, exam, credential, renewal, and status histories, with a simple planned server-side verification export for other resources.
-- **Optional printed awards:** Institution-branded diplomas and certificates with custom qb-inventory metadata; routine test results need no physical item.
-- **Payments and communication:** Configurable fees routed to institution society accounts through existing banking, plus configurable QB-Phone email/SMS and on-screen enrollment and milestone notifications.
-- **Future PS-MDT integration:** Authorized viewing of education and qualification history through the relevant oversight interface, without maintaining a second education database.
+- Shared configurable institution/course engine with QBCore, qb-target, ox_lib, oxmysql and qb-banking.
+- Admissions/enrollment, cash/bank payment ledger and society-payment handling, server-graded written examinations and persisted attempts.
+- Instructor practical assessment records, student/instructor progress and accreditation completion.
+- Authorized credential status changes with audit history and server-side credential verification.
+- Catalog management, import/export/discovery modules, published course/exam revision support and SQL schemas/migrations.
+- Client interaction menus and console-side readiness/reconciliation checks.
+- Automated Lua/static/SQL checks defined in GitHub Actions; a passing run is **not established by this documentation**.
+
+**Implemented in source does not mean integration-tested.** Do not deploy for consequential accreditation or real-money transactions without completing verification.
+
+## Institution configuration
+
+- **POST:** `post_basic`, provisional 80% written pass threshold, Code 5 traffic stop / pursuit / evasive driving practicals, `post_basic_accreditation`. Real interaction vectors, instructor/admin job rules and approved exam content remain unset.
+- **SAFR:** provisional fire/rescue foundations course and practicals; academy interaction points, staff roles and approved content remain unset.
+- **SAMS:** provisional medical/EMS foundations course and practicals; academy interaction points, staff roles and approved content remain unset.
+- **Sandy Shores University:** disabled; inherited demonstration courses and coordinates are not an approved SSU deployment.
+
+The authoritative runtime settings are `config.lua` and server-only `server/questions.lua`; draft files in `development/institutions/` are reference templates. Empty interaction arrays intentionally prevent unconfigured academy interactions.
+
+## Not established as complete
+
+Development-server acceptance, verified GitHub Actions and SQL migration results, final POST/SAFR/SAMS policy and examination content, QB-Phone messaging, printed qb-inventory certificates, external practical-resource adapters and PS-MDT integration. Additional administration workflows such as withdrawal, dismissal and reinstatement require code-level verification before claiming completion.
+
+## Current documentation
+
+- [Implementation inventory and open verification gates](development-reference/current-implementation-inventory.md)
+- [POST development-server handoff and acceptance tests](development-reference/post-development-server-handoff.md)
+- [POST configuration guide](development-reference/post-setup.md) — includes historical implementation-stage notes; consult the inventory for current status.
+- [Approved development design](development-reference/approved-design/README.md)
+- [Existing jobs by oversight area](development-reference/README.md)
 
 ## Education versus licensing
 
@@ -28,19 +49,6 @@ Examples of the intended workflows:
 - **Business and professional permits:** A restaurant owner may complete food-safety education before applying to a county or city for a permit. Mechanic specialties, medical qualifications, and other professional prerequisites can be documented the same way.
 
 Practical-test resources are **optional companion integrations**, not hard dependencies for PM Education as a whole. Their exact resource names and interfaces will be documented when confirmed.
-
-## Technical direction
-
-**Framework:** QBCore. Preserve **qb-target** interactions and compatibility with the server's customized **qb-inventory**; use **ox_lib** for menus and inputs. Planned integrations include SQL persistence, existing **qb-banking/qb-management** society accounts, and optional **QB-Phone** notifications. Do not substitute ox_target or ox_inventory.
-
-The current upstream resource is named `qb-university`; installation details and resource naming will be revised as PM Education implementation progresses. This README is a project overview, **not** a completed installation or configuration guide.
-
-## Development references
-
-- [Approved development design](development-reference/approved-design/README.md) — agreed features, enrollment lifecycle, instructor management, qualifications, external licensing boundaries, notifications, and future MDT integration.
-- [Jobs reference](development-reference/README.md) — existing PowerMoves RP jobs grouped by oversight area and civilian/commercial education opportunities.
-
-These references describe the **planned implementation** and distinguish agreed design from configuration details still to be finalized.
 
 ## Original project and license
 
