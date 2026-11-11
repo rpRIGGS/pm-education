@@ -1,233 +1,67 @@
-# PM Education — POST Development Server Setup
+# PM Education — POST configuration and staging setup
 
-**Status:** POST implementation is being prepared for development-server testing; NOT yet verified in FiveM. Do not assume production readiness.
+**Status (2026-11-11):** POST source workflows exist, but end-to-end FiveM, SQL and banking acceptance have **not** been recorded as passing. This document supersedes earlier implementation-stage notes that incorrectly described completed features as missing or cash-only.
 
-> **Current configuration authority (November 2026):** Use `config.lua`, `server/questions.lua`, and `server/post_readiness.lua` as the source of truth. Some historical sections further below describe superseded implementation stages. The current code supports separate instructor/admin roles, audited credential status changes, cash/bank payment methods, qb-banking society credits, and payment receipts. A successful society credit with failed ledger finalization is **not** considered fully reconciled. No automatic job/rank/license assignment is performed.
+For authoritative implementation status see [current implementation inventory](current-implementation-inventory.md). For the 18-step staging test plan see [POST development-server handoff](post-development-server-handoff.md). **Neither document is evidence of a passed test.**
 
-### POST configuration gate
+## Current configuration authority
 
-Fill these fields before the in-server POST test; do not change SAFR or SAMS placeholders:
+- `config.lua`: live institution/course settings, staff permissions, admission/exam NPCs and instructor management points.
+- `server/questions.lua`: server-only legacy question bank; a published approved catalog exam can substitute.
+- `server/post_readiness.lua`: console-only, read-only configuration diagnostics.
+- `fxmanifest.lua`: actual dependency and resource entrypoints.
+- `sql/`: base/catalog schemas and applicable revision migrations. Follow [staging validation](staging-validation.md) for the intended database state.
 
-- `Config.Institutions.post.admissions`: NPC model, actual `vector4` and label.
-- `Config.Institutions.post.examiners`: NPC model, actual `vector4`, and `courses = {'post_basic'}`.
-- `Config.Institutions.post.management`: actual `vector3`, heading, box dimensions and label.
-- `Config.Institutions.post.staffJobs`: authorized instructor job names and minimum grades.
-- `Config.Institutions.post.credentialAdminJobs`: separately authorized credential administrator jobs and minimum grades. An administrator does not have to be an instructor.
-- `server/questions.lua` or a published approved POST exam: real written questions and answer keys; the POST course requires written assessment.
-- `Config.Institutions.post.courses.post_basic.passPercent`: confirm the provisional 80% threshold, fees, practical requirements and credential label.
-- Ensure `qb-banking` contains the configured `post` society account. Check the SQL schema and migrations before testing.
+## Required POST inputs — intentionally not fabricated
 
-Run `pm_education_post_check` **in the server console** after configuring POST. It checks deployment configuration, not question approval, SQL, payment integrations, or gameplay success.
+| Setting | Required input |
+|---|---|
+| `Config.Institutions.post.admissions` | Approved NPC model, real academy `vector4`, label |
+| `Config.Institutions.post.examiners` | Approved NPC model, real `vector4`, `courses = {'post_basic'}` |
+| `Config.Institutions.post.management` | Real instructor/administrator desk `vector3` and qb-target zone dimensions |
+| `Config.Institutions.post.staffJobs` | Approved instructor job names and minimum grades |
+| `Config.Institutions.post.credentialAdminJobs` | Independently approved credential administrator job names and grades |
+| POST written examination | Approved `server/questions.lua` entries **or** published approved catalog exam |
+| `post_basic` course | Confirm provisional 80% threshold, zero fees, three practical requirements and credential label |
+| `post` society | Existing, accessible qb-banking society account |
 
-## Installation
-
-1. Copy the GitHub resource into your server resources directory (keep folder name `pm-education`).
-2. Ensure `oxmysql`, `qb-core`, `ox_lib`, and `qb-target` are started before `pm-education`. This resource uses QBCore, qb-target and ox_lib; it does not require ox_target or ox_inventory.
-3. Import **the complete** `sql/pm_education.sql` into the development server database. It creates enrollment, written attempts, practical results, and milestone credential tables.
-4. In `config.lua`, configure the POST entries below before testing. **Empty arrays intentionally disable POST interactions**, so the resource can start without made-up map coordinates.
-5. Add `ensure pm-education` after the dependencies in `server.cfg`.
-6. Use a test citizen and instructor job to verify enrollment, exams, practical assessments, completion, and credentials. Review server/client console errors before using live data.
-
-## REQUIRED POST placeholders
-
-### 1. Admissions NPC
-
-Add to `Config.Institutions.post.admissions`:
+Example shapes (replace **all** placeholders with actual approved values):
 
 ```lua
-{ model = 'a_m_m_business_01', coords = vector4(X, Y, Z, HEADING), label = 'POST Admissions' }
+admissions = {
+  { model = 'a_m_m_business_01', coords = vector4(X, Y, Z, HEADING), label = 'POST Admissions' }
+},
+examiners = {
+  { model = 'a_m_m_business_01', coords = vector4(X, Y, Z, HEADING),
+    label = 'POST Examiner', courses = {'post_basic'} }
+},
+management = {
+  { coords = vector3(X, Y, Z), heading = HEADING, length = 1.5, width = 1.5,
+    label = 'POST Instructor Management' }
+},
+staffJobs = { YOUR_APPROVED_INSTRUCTOR_JOB = { minGrade = 2 } },
+credentialAdminJobs = { YOUR_APPROVED_ADMIN_JOB = { minGrade = 5 } }
 ```
 
-Replace X/Y/Z/HEADING with actual academy coordinates.
+The example grades are placeholders, **not** approved policy. Instructor and credential administrator roles are separately checked by the server. Empty location arrays prevent accidental world interactions; they are not a blocker for independent source development.
 
-### 2. Written-exam NPC
+## Development-server procedure
 
-Add to `Config.Institutions.post.examiners`:
+1. Back up the development database and resource; use the latest committed `rpRIGGS/pm-education` in folder `pm-education`.
+2. Ensure `qb-core`, `oxmysql`, `ox_lib`, `qb-target` and `qb-banking` are started. Preserve compatibility with the custom qb-inventory; do not install ox_inventory or ox_target as substitutes.
+3. Apply the applicable SQL schemas/migrations following [staging validation](staging-validation.md); do not blindly reapply migrations to an existing database.
+4. Enter approved POST-only configuration values and verify the `post` society account. Leave SAFR/SAMS and university placeholders unchanged.
+5. Start `pm-education` after dependencies. From the server console run `pm_education_post_check`, `pm_education_catalog_check post` and `pm_education_payment_review post` as applicable.
+6. Execute the [POST acceptance tests](post-development-server-handoff.md) using disposable test citizens, instructors and administrators; begin with zero fees. Record actual results and failures against the tested commit.
 
-```lua
-{ model = 'a_m_m_business_01', coords = vector4(X, Y, Z, HEADING),
-  label = 'POST Examiner', courses = {'post_basic'} }
-```
+## Present behavior and boundaries
 
-### 3. Instructor management desk
+- Server-only answer keys; written grading and attempts persist to SQL.
+- Practical pass/fail/incomplete entries are instructor-authorized and tracked; passing every requirement gates accreditation.
+- Credential administrators can suspend, restore a suspended credential or revoke with an audit reason. Revoked credentials are terminal in the present workflow.
+- Cash/bank fees and qb-banking society routing are implemented in source, with a ledger and reconciliation paths. This is **not** a claim of tested financial correctness.
+- No automatic police job, promotion, government license, MDT authority or physical qb-inventory certificate issuance.
+- QB-Phone messaging and external shooting/driving resource integrations are not verified as complete.
+- The original university demonstration NPC coordinates are not approved Sandy Shores University locations; that institution stays disabled.
 
-Add to `Config.Institutions.post.management`:
-
-```lua
-{ coords = vector3(X, Y, Z), heading = HEADING, length = 1.5, width = 1.5,
-  label = 'POST Instructor Management' }
-```
-
-This uses a qb-target box zone, not an NPC or slash command.
-
-### 4. Authorized staff jobs
-
-Replace `staffJobs = {}` with **real jobs and minimum grade levels** from your current `jobs.lua`:
-
-```lua
-staffJobs = {
-  YOUR_POST_INSTRUCTOR_JOB = { minGrade = 2 }
-}
-```
-
-**Do not leave the sample job identifier in place.** Server validates both the current job/grade and distance from a configured management desk.
-
-### 5. Written question bank
-
-`server/questions.lua` contains an intentionally empty `EducationQuestions.post.post_basic` list until you approve POST material. A course with no written questions **cannot complete or award accreditation**, even if all practical results pass. Example question shape:
-
-```lua
-questions = {
-  { question = 'Replace with approved academy question',
-    answers = {'Option A', 'Option B', 'Option C'}, correct = 2 }
-}
-```
-
-`passPercent = 80` is provisional. Course and exam fees are currently 0.
-
-## Already configured
-
-- Institution: `post`, course: `post_basic`.
-- Three example instructor practicals: Code 5 stop, pursuit, evasive driving. Adjust the academy curriculum before launch.
-- Instructor results: pass/fail/incomplete, notes, authenticated examiner ID, SQL history.
-- Written exam results: scored on the server, saved in SQL.
-- Progress: students and instructors can inspect requirement completion.
-- Milestone credential: `post_basic_accreditation` is issued in SQL only after written and practical requirements pass.
-- Student credential lookup from Admissions → My Credentials.
-- Server export: `exports['pm-education']:HasCredential(citizenid, 'post_basic_accreditation')` returns a boolean, server-side only.
-
-## NOT implemented / pending integration
-
-- Printed certificate item/image and custom qb-inventory metadata.
-- POST credential suspension, revocation and renewal management UI.
-- Instructor authority finer than configured job/grade.
-- Society account routing for paid university courses; current cash deductions do not deposit into society accounts.
-- QB-Phone notifications, PS-MDT integration and final academy curriculum.
-- Full enrollment administration (withdrawal, dismissal, reinstatement) and audited corrections.
-- Server-side test results and load/security testing.
-
-**Known caution:** Current enrollment and exam fee handling is an early foundation, not a fully transactional banking integration. Test using zero-fee POST before testing paid institutions.
-
-## Testing safeguards and known behavior
-
-- POST has `requireWritten = true`: an empty written question bank blocks accreditation. This is deliberate.
-- Cancelling an exam clears its in-memory session, but currently does not refund a charged fee.
-- Practical-only courses at other institutions can omit `requireWritten` and `questions`; they still require every configured practical assessment to pass.
-- Completion records are milestones, not government license issuance.
-- **Security improvement committed:** questions and answer keys now live in `server/questions.lua`, loaded server-side only. Continue testing session security, fee handling, and grading before consequential use.
-- **Credential administration pending:** revocation/suspension workflows and audited result corrections are not implemented. Do not use this build for consequential live accreditation decisions.
-
-## Current source-of-truth files
-
-- `config.lua`: institution metadata, POST location/job placeholders, fees, practical requirements.
-- `server/questions.lua`: **server-only** written questions and answer keys; do not add this file to shared scripts.
-- `server/server.lua`: authenticated enrollment, examination, practical assessment, credential logic.
-- `sql/pm_education.sql`: all four database tables.
-- `fxmanifest.lua`: includes `@oxmysql/lib/MySQL.lua` before the server scripts.
-
-**Known testing limitation:** Instructor access stays disabled until a real job/grade and management desk are configured. POST enrollment and examinations likewise need real NPC positions. No location has been invented.
-
-## Credential administration (new)
-
-Credential administrators are **not** automatically instructors. To enable status changes, configure BOTH `staffJobs` and `credentialAdminJobs` for the approved job/grade in `Config.Institutions.post`, and add a POST management desk. Example placeholder:
-
-```lua
-staffJobs = { YOUR_INSTRUCTOR_JOB = { minGrade = 2 } },
-credentialAdminJobs = { YOUR_APPROVED_ADMIN_JOB = { minGrade = 5 } },
-```
-
-A credential administrator must satisfy both checks (add the administrator job to `staffJobs` as well if it differs from the instructor job). Leave `credentialAdminJobs = {}` to disable status changes.
-
-From Instructor Management → student → Manage credentials, an authorized administrator can suspend, revoke, or restore a suspended credential with a mandatory reason. Each decision is recorded in `pm_education_credential_audit`. Revoked and expired credentials cannot be automatically restored. Completed enrollments remain visible for administration.
-
-The `HasCredential` export rejects suspended/revoked/expired credentials. **SQL is authoritative**; any future printed qb-inventory certificate is only a representation.
-
-Test status changes and audit persistence on the development database before live use. The current design has no multi-server distributed lock and has not undergone concurrency testing.
-
-## Deployment placeholders: institution enable switches
-
-`Config.Institutions.sandy_university.enabled = false` deliberately prevents the inherited example NPCs from spawning. Those original coordinates are **not** Sandy Shores University and must not be treated as approved locations. When the real university facilities, course catalog and staff roles are available, configure them and change `enabled = true`.
-
-`Config.Institutions.post.enabled = true` is safe while admissions/examiners/management arrays are empty: no NPC or desk is spawned until you supply locations. Both institutions share the same education backend.
-
-### Pending user-provided data (do not block other commits)
-
-- POST academy admissions, exam and instructor desk coordinates/headings.
-- Approved POST instructor and credential administrator jobs/grades.
-- POST written questions and approved passing score.
-- Sandy Shores University building, NPC and desk coordinates; actual university curriculum.
-- Final society banking account mapping and optional qb-inventory certificate artwork.
-
-**Development rule:** implement generalized server-side workflows independently of these values; keep missing site-specific values explicitly configurable and disabled rather than inventing them.
-
-## Exam and resource lifecycle safeguards (implementation stage)
-
-- An exam session older than 30 minutes no longer prevents requesting another examination.
-- Written attempts must save successfully before a pass can advance course completion.
-- Failed exam-start database updates clear the session and attempt to refund any exam fee.
-- Courses with no written questions and no practical requirements cannot auto-complete.
-- Spawned admissions/examiner NPCs and instructor qb-target zones are removed on resource stop.
-- Exam fees remain cash-only and society routing is still a placeholder.
-- **Outstanding:** robust payment ledger and reconciliation for failures, race/concurrency tests, and full in-server validation.
-
-## Payment ledger and reconciliation
-
-Import the updated `sql/pm_education.sql` before starting this revision. It adds `pm_education_payments` alongside the existing education tables.
-
-Enrollment and examination cash payments create a ledger entry before debiting QBCore cash. States include `pending`, `charged`, `completed`, `failed`, `refunded`, and `refund_failed`. A failed enrollment insert or exam startup attempts a refund and records the result.
-
-From the **server console only**, run `pm_education_payments` to list up to 50 payments needing review. This is intentionally read-only and never automatically retries debits or refunds. An administrator must reconcile uncertain rows against the QBCore cash records before changing balances.
-
-**Still pending:** society deposit adapter, configurable cash/bank payment method, payment receipts, crash-window recovery, duplicate-enrollment database uniqueness, and real FiveM/oxmysql integration tests. The ledger improves traceability but cannot make a QBCore cash debit and a separate MySQL write fully atomic.
-
-## Enrollment uniqueness, receipts and configurable payment source
-
-- New installs: `sql/pm_education.sql` creates `uq_student_course` on `(citizenid, institution_id, course_id)`. **Existing installs:** `CREATE TABLE IF NOT EXISTS` does not add this key to an existing table. Inspect and resolve any duplicates, then apply the unique index manually before relying on database enforcement.
-- Students can open **Payment Receipts** at an admissions NPC; the server only returns records matching their own citizen ID and institution.
-- `Config.Payment.moneyType` accepts `'cash'` (default) or `'bank'`; the chosen type is recorded in each payment ledger entry. Do not change the money type while a transaction is being processed.
-- `Config.Payment.societyDepositsEnabled = false` and `societyAdapter = 'none'` are deliberate placeholders. **No society deposits occur yet.**
-- Retakes, chargebacks, administrator reconciliation and business accounting require additional policy/integration work; receipt entries are not proof that society funds were transferred.
-
-## Implemented QBCore payment and society banking
-
-**Current implementation supersedes earlier placeholder notes in this guide.** Students select **Cash** or **Bank** at the admissions or examination dialog. The server validates that choice and uses `Player.Functions.RemoveMoney(method, fee, reason)`. Fees are taken from the configured course, never from the client.
-
-PM Education credits `Config.Institutions[institutionId].society` using the official `exports['qb-banking']:AddMoney(account, amount, reason)`. The server verifies the society account exists using `GetAccount` **before charging**. `qb-management` remains the management UI; no separate qb-management balance is credited. `qb-banking` is a manifest dependency.
-
-**Account setup:** The `post` and `university` society account names are currently configured; verify those exact job accounts exist in your installed qb-banking. Society account auto-creation depends on the banking resource; this script deliberately does not fabricate an account.
-
-**Important failure boundary:** QBCore player money, qb-banking society credits, and the PM Education payment ledger are separate operations. If a society credit or ledger write is uncertain, the payment remains flagged for console reconciliation; **do not automatically repeat the society credit** or duplicate revenue. Use `pm_education_payments` and compare the payment number with qb-banking statements. This needs in-server verification with your installed banking fork.
-
-## Credential lifecycle and exam concurrency hardening
-
-Credential transitions are restricted to `active -> suspended/revoked` and `suspended -> active/revoked`. `revoked` and `expired` are terminal in the current administration workflow. The server enforces these transitions even if a client submits a crafted request.
-
-An exam session now acquires an in-memory lock **before** the first yielding enrollment/payment operation, preventing repeated start requests from charging the same connected player twice concurrently. The server checks enrollment status after payment and refunds a failed start. This lock is not a distributed transaction and does not replace integration testing or reconciliation of interrupted money transfers.
-
-**Validation checklist:** repeated exam-start events; insufficient cash and bank balances; missing qb-banking society account; enrollment SQL errors; failed society credits; reconnect during checkout; credential revocation followed by attempted suspension; legitimate suspension restoration.
-
-## Further implementation safeguards
-
-- `sandy_university.management` is now an explicit empty desk list; populate it with real instructor desk positions before enabling the institution.
-- Removed unused top-level `Config.EnableDemoUniversity` and `Config.EnablePOST` flags. Institution `enabled` is authoritative.
-- The exam request stores a **server-only answer key snapshot** for that session; later changes to the question bank cannot change grading of an already-issued exam.
-- The submission handler consumes the exam session before yielding to database writes, so duplicate submissions cannot insert duplicate attempts.
-- Submission revalidates enrollment ownership and active status.
-- These protections require live verification with QBCore/oxmysql. In-memory sessions do not persist through a resource restart.
-
-## Payment and examination error handling (implemented)
-
-- Enrollment payment errors release the per-citizen enrollment lock. Unexpected money debit/refund exceptions are flagged for administrator reconciliation instead of silently assuming no transfer occurred.
-- Society-credit failures are logged in the server console with the payment number. Never blindly repeat a credit if its result is uncertain.
-- An exam question bank is validated **before charging**: each question requires text, two or more answer labels, and a valid server-only answer index.
-- A course must explicitly configure `passPercent` in the inclusive range 0-100; the server no longer silently defaults to 70%.
-- If a passing attempt is saved but course completion refresh fails, the result remains stored and an administrator-review notification is emitted.
-- **Not yet runtime-tested:** use your development server to exercise qb-banking account credits, cash/bank debits, interrupted checkout, and exam save/completion failure paths.
-
-## Settlement and assessment improvements
-
-- Enrollment locks remain held until society settlement finishes, preventing a new enrollment attempt from racing the previous checkout.
-- A failed or uncertain society credit no longer produces an unqualified successful-payment message. The enrollment or exam remains available, with the payment flagged for administrator review.
-- Exam passing thresholds are validated before taking fees and snapshotted per session, alongside the server-only answer key.
-- Empty written question banks return a clear student-facing message instead of silently ignoring the examiner request.
-- Instructor practical evaluations remain recorded if the subsequent course-completion calculation fails; the examiner is notified that administrator review is needed.
+**Next gate:** Record successful source, SQL and runtime verification. Do not treat the existence of code, console checks or GitHub Actions definitions as proof of passing tests.
