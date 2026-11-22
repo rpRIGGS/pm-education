@@ -14,6 +14,10 @@ on:
       - 'sql/**'
       - '.github/workflows/lua-check.yml'
 
+concurrency:
+  group: pm-education-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lua-syntax:
     runs-on: ubuntu-latest
