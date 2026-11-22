@@ -55,3 +55,8 @@ Practical-test resources are **optional companion integrations**, not hard depen
 PM Education is forked from **[mundstockGG/qb-university](https://github.com/mundstockGG/qb-university)**, originally by **Mundstock**. The original project provides professor NPCs, subject enrollment, learning materials, written exams, configurable fees, and certificate awards.
 
 This fork retains the original project's **MIT License**. See [LICENSE](LICENSE) for the full license and original copyright notice, which must remain included in copies or substantial portions of the software.
+
+
+## GitHub Actions usage
+
+The existing Lua/resource and SQL checks run for relevant source, manifest, and SQL changes. Same-ref concurrency cancels superseded work. The workflows upload no build artifacts; preserve durable deliverables in the repository or an approved release, not temporary Actions storage.
